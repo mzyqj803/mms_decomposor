@@ -1,0 +1,9 @@
+mms_decomposor/
+├── .gitignore
+├── pom.xml
+└── src/
+    ├── main/
+    │   ├── java/       # Application source code
+    │   └── resources/  # Configuration files and resources
+    └── test/
+        └── java/       # Unit and integration tests
