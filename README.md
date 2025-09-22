@@ -7,7 +7,8 @@ MMS制造管理系统是一个专为电梯制造行业设计的工艺分解和�
 ## 技术栈
 
 ### 后端
-- **Spring Boot 2.7.18** - 主框架
+- **Spring Boot 3.2.0** - 主框架
+- **Java 21** - 编程语言
 - **Spring Data JPA** - 数据访问层
 - **Spring Security** - 安全框架
 - **MariaDB** - 主数据库
@@ -122,8 +123,8 @@ mms_decomposor/
 ## 快速开始
 
 ### 环境要求
-- JDK 11+
-- Maven 3.6+
+- **JDK 21+** (推荐使用 OpenJDK 21)
+- Maven 3.8.6+
 - Node.js 16+
 - Docker & Docker Compose
 - Git
@@ -295,6 +296,19 @@ npm run test
 ## 许可证
 
 本项目采用MIT许可证。详情请参阅 [LICENSE](LICENSE) 文件。
+
+## 升级说明
+
+项目已升级到 **Spring Boot 3.2.0 + Java 21**！
+
+📖 详细升级指南请参考: [UPGRADE_GUIDE.md](./UPGRADE_GUIDE.md)
+
+### 主要升级内容
+- ✅ Java 11 → Java 21
+- ✅ Spring Boot 2.7.18 → 3.2.0
+- ✅ Jakarta EE 迁移 (javax → jakarta)
+- ✅ Spring Security 配置更新
+- ✅ 所有依赖版本更新
 
 ## 联系方式
 

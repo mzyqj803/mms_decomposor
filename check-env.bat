@@ -12,7 +12,7 @@ call java -version >nul 2>&1
 if %errorlevel% neq 0 (
     echo ❌ Java未安装或未配置环境变量
     echo    当前PATH: %PATH%
-    echo    建议: 安装JDK 11+并配置JAVA_HOME环境变量
+    echo    建议: 安装JDK 21+并配置JAVA_HOME环境变量
     set "all_ok=false"
 ) else (
     echo ✅ Java环境正常

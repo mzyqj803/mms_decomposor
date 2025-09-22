@@ -6,11 +6,11 @@ REM 检查Java是否安装
 echo 检查Java环境...
 call java -version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ❌ Java未安装或未配置环境变量，请先安装JDK 11+
+    echo ❌ Java未安装或未配置环境变量，请先安装JDK 21+
     echo.
     echo 解决方案:
     echo 1. 下载JDK: https://adoptium.net/
-    echo 2. 安装JDK 11或更高版本
+    echo 2. 安装JDK 21或更高版本
     echo 3. 配置JAVA_HOME环境变量
     echo 4. 将%%JAVA_HOME%%\bin添加到PATH环境变量
     echo.
