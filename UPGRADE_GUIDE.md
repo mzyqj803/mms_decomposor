@@ -144,3 +144,4 @@ export JAVA_HOME=/path/to/java21
 **升级完成时间**: 2025-09-22  
 **升级版本**: Spring Boot 3.2.0 + Java 21  
 **状态**: ✅ 成功
+
