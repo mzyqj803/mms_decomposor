@@ -125,10 +125,28 @@ mms_decomposor/
 - JDK 11+
 - Maven 3.6+
 - Node.js 16+
-- MariaDB 10.3+
-- Redis 6.0+
+- Docker & Docker Compose
+- Git
 
-### 后端启动
+### Windows环境启动 (推荐)
+
+1. **克隆项目**
+```cmd
+git clone <repository-url>
+cd mms_decomposor
+```
+
+2. **一键启动**
+```cmd
+# 双击运行或在命令行执行
+start.bat
+```
+
+3. **访问应用**
+- 前端: http://localhost:3000
+- 后端API: http://localhost:8080/api
+
+### Linux/Mac环境启动
 
 1. **克隆项目**
 ```bash
@@ -136,47 +154,40 @@ git clone <repository-url>
 cd mms_decomposor
 ```
 
-2. **配置数据库**
+2. **一键启动**
 ```bash
-# 启动MariaDB
-# 执行初始化脚本
-mysql -u root -p < src/main/resources/sql/init.sql
+chmod +x start.sh
+./start.sh
 ```
 
-3. **配置Redis**
-```bash
-# 启动Redis服务
-redis-server
+3. **访问应用**
+- 前端: http://localhost:3000
+- 后端API: http://localhost:8080/api
+
+### 开发环境启动
+
+#### Windows开发环境
+```cmd
+# 开发模式启动，支持热重载
+dev-start.bat
 ```
 
-4. **修改配置**
-编辑 `src/main/resources/application.yml`，修改数据库和Redis连接信息。
-
-5. **启动应用**
+#### Linux/Mac开发环境
 ```bash
+# 启动基础服务
+docker-compose up -d mariadb redis
+
+# 启动后端开发服务器
 mvn spring-boot:run
-```
 
-后端服务将在 `http://localhost:8080` 启动。
-
-### 前端启动
-
-1. **进入前端目录**
-```bash
+# 启动前端开发服务器 (新终端)
 cd frontend
-```
-
-2. **安装依赖**
-```bash
-npm install
-```
-
-3. **启动开发服务器**
-```bash
 npm run dev
 ```
 
-前端应用将在 `http://localhost:3000` 启动。
+### 手动启动 (不推荐)
+
+如果需要手动启动各个组件，请参考 [WINDOWS_SETUP.md](WINDOWS_SETUP.md) 详细说明。
 
 ## API文档
 
