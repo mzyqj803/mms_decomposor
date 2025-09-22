@@ -18,6 +18,9 @@ export default defineConfig({
       dts: true
     })
   ],
+  define: {
+    global: 'globalThis',
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
@@ -35,6 +38,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    target: 'es2015',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -44,5 +48,8 @@ export default defineConfig({
         }
       }
     }
+  },
+  optimizeDeps: {
+    include: ['vue', 'vue-router', 'pinia', 'element-plus']
   }
 })

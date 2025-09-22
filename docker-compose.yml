@@ -8,6 +8,8 @@ services:
       MYSQL_DATABASE: mms_db
       MYSQL_USER: mms_user
       MYSQL_PASSWORD: mms_password
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3306:3306"
     volumes:
@@ -54,7 +56,7 @@ services:
       dockerfile: Dockerfile
     container_name: mms-frontend
     ports:
-      - "3000:80"
+      - "9000:80"
     depends_on:
       - backend
     networks:

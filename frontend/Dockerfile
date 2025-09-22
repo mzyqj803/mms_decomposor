@@ -1,14 +1,35 @@
-# 构建阶段
-FROM node:16-alpine as build-stage
+# 构建阶段 - 使用debian基础镜像避免musl问题
+FROM node:18-slim as build-stage
+
+# 配置APT源为阿里云镜像
+RUN echo "deb http://mirrors.cloud.aliyuncs.com/debian/ bullseye main contrib non-free" > /etc/apt/sources.list && \
+    echo "deb-src http://mirrors.cloud.aliyuncs.com/debian/ bullseye main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb http://mirrors.cloud.aliyuncs.com/debian/ bullseye-updates main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb-src http://mirrors.cloud.aliyuncs.com/debian/ bullseye-updates main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb http://mirrors.cloud.aliyuncs.com/debian/ bullseye-backports main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb-src http://mirrors.cloud.aliyuncs.com/debian/ bullseye-backports main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb http://mirrors.cloud.aliyuncs.com/debian-security/ bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb-src http://mirrors.cloud.aliyuncs.com/debian-security/ bullseye-security main contrib non-free" >> /etc/apt/sources.list
+
+# 安装必要的构建工具
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制package.json和package-lock.json
-COPY package*.json ./
+# 设置环境变量
+ENV NODE_ENV=production
+ENV NODE_OPTIONS="--openssl-legacy-provider"
+ENV npm_config_target_platform=linux
+ENV npm_config_target_arch=x64
 
-# 安装依赖
-RUN npm ci
+# 只复制package.json，不复制package-lock.json以避免架构问题
+COPY package.json ./
+
+# 完全清理并重新安装依赖以避免平台不匹配
+RUN rm -rf node_modules package-lock.json && \
+    npm cache clean --force && \
+    npm install
 
 # 复制源代码
 COPY . .

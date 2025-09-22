@@ -138,7 +138,7 @@ if %errorlevel% equ 0 (
     echo [SUCCESS] MMS Manufacturing Management System started successfully!
     echo.
     echo Access URLs:
-    echo   Frontend Application: http://localhost:3000
+    echo   Frontend Application: http://localhost:9000
     echo   Backend API: http://localhost:8080/api
     echo.
     echo Database connection info:
@@ -157,7 +157,7 @@ if %errorlevel% equ 0 (
     echo.
     echo Press any key to open browser and access the application...
     pause >nul
-    start http://localhost:3000
+    start http://localhost:9000
 ) else (
     echo [ERROR] Service startup failed, please check logs
     echo Use the following command to view detailed error information:

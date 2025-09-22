@@ -30,5 +30,9 @@
     "sass": "^1.69.5",
     "unplugin-auto-import": "^0.16.7",
     "unplugin-vue-components": "^0.25.2"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "*",
+    "@esbuild/linux-x64": "0.21.5"
   }
 }
