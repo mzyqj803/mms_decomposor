@@ -3,46 +3,96 @@ chcp 65001 >nul
 echo 启动MMS制造管理系统...
 
 REM 检查Java是否安装
-java -version >nul 2>&1
+echo 检查Java环境...
+call java -version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo 错误: Java未安装或未配置环境变量，请先安装JDK 11+
+    echo ❌ Java未安装或未配置环境变量，请先安装JDK 11+
+    echo.
+    echo 解决方案:
+    echo 1. 下载JDK: https://adoptium.net/
+    echo 2. 安装JDK 11或更高版本
+    echo 3. 配置JAVA_HOME环境变量
+    echo 4. 将%%JAVA_HOME%%\bin添加到PATH环境变量
+    echo.
     pause
     exit /b 1
+) else (
+    echo ✅ Java环境正常
 )
 
 REM 检查Maven是否安装
-mvn -version >nul 2>&1
+echo 检查Maven环境...
+call mvn -version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo 错误: Maven未安装或未配置环境变量，请先安装Maven 3.6+
+    echo ❌ Maven未安装或未配置环境变量，请先安装Maven 3.6+
+    echo.
+    echo 解决方案:
+    echo 1. 下载Maven: https://maven.apache.org/download.cgi
+    echo 2. 解压到指定目录
+    echo 3. 配置MAVEN_HOME环境变量
+    echo 4. 将%%MAVEN_HOME%%\bin添加到PATH环境变量
+    echo.
     pause
     exit /b 1
+) else (
+    echo ✅ Maven环境正常
 )
 
+
 REM 检查Node.js是否安装
-node --version >nul 2>&1
+echo 检查Node.js环境...
+call node --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo 错误: Node.js未安装或未配置环境变量，请先安装Node.js 16+
+    echo ❌ Node.js未安装或未配置环境变量，请先安装Node.js 16+
+    echo.
+    echo 解决方案:
+    echo 1. 下载Node.js: https://nodejs.org/
+    echo 2. 选择LTS版本安装
+    echo 3. 安装时自动配置PATH环境变量
+    echo.
     pause
     exit /b 1
+) else (
+    echo ✅ Node.js环境正常
 )
 
 REM 检查Docker是否安装
-docker --version >nul 2>&1
+echo 检查Docker环境...
+call docker --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo 错误: Docker未安装，请先安装Docker Desktop
+    echo ❌ Docker未安装，请先安装Docker Desktop
+    echo.
+    echo 解决方案:
+    echo 1. 下载Docker Desktop: https://www.docker.com/products/docker-desktop
+    echo 2. 安装Docker Desktop
+    echo 3. 启动Docker Desktop服务
+    echo 4. 确保Docker服务正在运行
+    echo.
     pause
     exit /b 1
+) else (
+    echo ✅ Docker环境正常
 )
 
 REM 检查Docker Compose是否安装
-docker-compose --version >nul 2>&1
+echo 检查Docker Compose环境...
+call docker-compose --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo 错误: Docker Compose未安装，请先安装Docker Compose
+    echo ❌ Docker Compose未安装，请先安装Docker Compose
+    echo.
+    echo 解决方案:
+    echo 1. Docker Desktop通常包含Docker Compose
+    echo 2. 确保Docker Desktop已正确安装
+    echo 3. 重启Docker Desktop服务
+    echo.
     pause
     exit /b 1
+) else (
+    echo ✅ Docker Compose环境正常
 )
 
-echo 环境检查通过，开始构建和启动服务...
+echo ✅ 环境检查通过，开始构建和启动服务...
+echo.
 
 REM 构建后端应用
 echo.

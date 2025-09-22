@@ -93,37 +93,156 @@ dev-start.bat
 - **数据库**: localhost:3306 (用户名: mms_user, 密码: mms_password)
 - **Redis**: localhost:6379
 
-## 常见问题
+## 故障排除
 
-### 1. 端口被占用
+### 环境检查工具
+如果启动失败，请先运行环境检查工具：
+```cmd
+check-env.bat
+```
+
+### 调试模式启动
+如果环境检查通过但启动失败，请使用调试模式：
+```cmd
+# 详细输出模式
+start-debug.bat --verbose
+
+# 跳过构建模式
+start-debug.bat --skip-build
+
+# 组合模式
+start-debug.bat --verbose --skip-build
+```
+
+### 常见问题
+
+#### 1. Maven检查失败
+**症状**: 脚本在Maven检查时退出，无错误信息
+**原因**: Maven未安装或环境变量未配置，或者命令执行导致脚本退出
+**解决方案**:
+
+首先运行命令测试工具：
+```cmd
+test-commands.bat
+```
+
+然后检查Maven配置：
+```cmd
+# 检查Maven是否在PATH中
+where mvn
+
+# 检查环境变量
+echo %MAVEN_HOME%
+echo %PATH%
+
+# 手动配置Maven
+set MAVEN_HOME=C:\apache-maven-3.8.6
+set PATH=%PATH%;%MAVEN_HOME%\bin
+```
+
+**注意**: 如果命令测试工具显示Maven命令执行失败，请：
+1. 重新安装Maven
+2. 重启命令提示符
+3. 以管理员身份运行
+4. 检查杀毒软件是否阻止了Maven执行
+
+#### 2. Java检查失败
+**症状**: Java版本检查失败
+**解决方案**:
+```cmd
+# 检查Java版本
+java -version
+
+# 检查JAVA_HOME
+echo %JAVA_HOME%
+
+# 手动配置Java
+set JAVA_HOME=C:\Program Files\Java\jdk-11.0.16
+set PATH=%PATH%;%JAVA_HOME%\bin
+```
+
+#### 3. Node.js检查失败
+**症状**: Node.js命令无法识别
+**解决方案**:
+```cmd
+# 检查Node.js版本
+node --version
+npm --version
+
+# 重新安装Node.js LTS版本
+# 下载地址: https://nodejs.org/
+```
+
+#### 4. Docker检查失败
+**症状**: Docker命令无法识别
+**解决方案**:
+- 启动Docker Desktop
+- 等待Docker服务完全启动
+- 检查Docker状态: `docker --version`
+- 重启Docker Desktop服务
+
+#### 5. 端口被占用
 ```cmd
 # 检查端口占用
 netstat -an | findstr ":3000"
 netstat -an | findstr ":8080"
+netstat -an | findstr ":3306"
+netstat -an | findstr ":6379"
 
 # 停止占用端口的进程
 taskkill /f /pid <进程ID>
+
+# 或者使用PowerShell
+Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess
 ```
 
-### 2. Docker服务未启动
-- 启动Docker Desktop
-- 等待Docker服务完全启动
-- 检查Docker状态: `docker --version`
-
-### 3. 环境变量未配置
-- 检查JAVA_HOME: `echo %JAVA_HOME%`
-- 检查MAVEN_HOME: `echo %MAVEN_HOME%`
-- 检查PATH: `echo %PATH%`
-
-### 4. 权限问题
+#### 6. 权限问题
 - 以管理员身份运行命令提示符
 - 检查文件夹读写权限
 - 确保防火墙允许相关端口
+- 检查杀毒软件是否阻止了操作
 
-### 5. 内存不足
+#### 7. 内存不足
 - 关闭其他占用内存的应用程序
-- 增加Docker Desktop的内存分配
+- 增加Docker Desktop的内存分配 (建议4GB+)
 - 检查系统可用内存
+- 重启计算机释放内存
+
+#### 8. 网络问题
+- 检查网络连接
+- 配置Docker镜像加速器
+- 检查防火墙设置
+- 尝试使用VPN或更换网络
+
+### 错误代码说明
+
+| 错误代码 | 含义 | 解决方案 |
+|---------|------|---------|
+| 1 | 环境检查失败 | 运行 check-env.bat 检查环境 |
+| 2 | Maven构建失败 | 检查Maven配置和网络连接 |
+| 3 | 前端构建失败 | 检查Node.js和npm配置 |
+| 4 | Docker启动失败 | 检查Docker服务状态 |
+| 5 | 端口占用 | 停止占用端口的进程 |
+
+### 日志分析
+
+#### 查看详细日志
+```cmd
+# 查看所有服务日志
+docker-compose logs -f
+
+# 查看特定服务日志
+docker-compose logs -f backend
+docker-compose logs -f frontend
+docker-compose logs -f mariadb
+docker-compose logs -f redis
+```
+
+#### 常见日志错误
+1. **数据库连接失败**: 检查MariaDB容器状态
+2. **Redis连接失败**: 检查Redis容器状态
+3. **前端构建失败**: 检查Node.js版本和依赖
+4. **后端启动失败**: 检查Java版本和Maven配置
 
 ## 开发调试
 

@@ -36,7 +36,7 @@ public class ContractsServiceImpl implements ContractsService {
             return cachedResult;
         }
         
-        Page<Contracts> contracts = contractsRepository.findByContractNoOrProjectNameContaining(contractNo, projectName);
+        Page<Contracts> contracts = contractsRepository.findByContractNoOrProjectNameContaining(contractNo, projectName, pageable);
         
         // 缓存5分钟
         cacheService.set(cacheKey, contracts, 5, TimeUnit.MINUTES);
@@ -127,7 +127,7 @@ public class ContractsServiceImpl implements ContractsService {
             return cachedResult;
         }
         
-        Page<Contracts> contracts = contractsRepository.findByContractNoOrProjectNameContaining(keyword, keyword);
+        Page<Contracts> contracts = contractsRepository.findByContractNoOrProjectNameContaining(keyword, pageable);
         
         // 缓存3分钟
         cacheService.set(cacheKey, contracts, 3, TimeUnit.MINUTES);
