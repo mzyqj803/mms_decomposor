@@ -1,0 +1,126 @@
+// 全局样式
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+// 布局样式
+.app-container {
+  padding: 20px;
+}
+
+.page-header {
+  margin-bottom: 20px;
+  
+  .title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 8px;
+  }
+  
+  .description {
+    color: #606266;
+    font-size: 14px;
+  }
+}
+
+// 表格样式
+.table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  
+  .table-header {
+    padding: 20px;
+    border-bottom: 1px solid #ebeef5;
+    
+    .header-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #303133;
+    }
+  }
+  
+  .table-content {
+    padding: 20px;
+  }
+}
+
+// 卡片样式
+.info-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+  
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ebeef5;
+  }
+}
+
+// 状态样式
+.status-tag {
+  &.draft {
+    color: #909399;
+    background-color: #f4f4f5;
+  }
+  
+  &.processing {
+    color: #e6a23c;
+    background-color: #fdf6ec;
+  }
+  
+  &.completed {
+    color: #67c23a;
+    background-color: #f0f9ff;
+  }
+  
+  &.error {
+    color: #f56c6c;
+    background-color: #fef0f0;
+  }
+}
+
+// 响应式
+@media (max-width: 768px) {
+  .app-container {
+    padding: 10px;
+  }
+  
+  .page-header .title {
+    font-size: 20px;
+  }
+}

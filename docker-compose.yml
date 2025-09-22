@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # MariaDB数据库
+  mariadb:
+    image: mariadb:10.3
+    container_name: mms-mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: mms_db
+      MYSQL_USER: mms_user
+      MYSQL_PASSWORD: mms_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./src/main/resources/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - mms-network
+
+  # Redis缓存
+  redis:
+    image: redis:6.0-alpine
+    container_name: mms-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mms-network
+
+  # 后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: mms-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/mms_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: mms_user
+      SPRING_DATASOURCE_PASSWORD: mms_password
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      - mariadb
+      - redis
+    networks:
+      - mms-network
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mms-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - mms-network
+
+volumes:
+  mariadb_data:
+  redis_data:
+
+networks:
+  mms-network:
+    driver: bridge
