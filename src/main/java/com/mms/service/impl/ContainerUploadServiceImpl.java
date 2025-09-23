@@ -116,19 +116,19 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
                 // 检查是否是设备号和项目名称行
                 String firstCellValue = getCellStringValue(row.getCell(0));
                 if (firstCellValue != null && firstCellValue.contains("设备号")) {
-                    // 提取设备号
-                    String[] parts = firstCellValue.split(":");
-                    if (parts.length > 1) {
-                        deviceNo = parts[1].trim();
+                    // 设备号在C列（索引2）
+                    String deviceNoValue = getCellStringValue(row.getCell(2));
+                    if (deviceNoValue != null && !deviceNoValue.trim().isEmpty()) {
+                        deviceNo = deviceNoValue.trim();
                     }
                     continue;
                 }
                 
                 if (firstCellValue != null && firstCellValue.contains("项目名称")) {
-                    // 提取项目名称
-                    String[] parts = firstCellValue.split(":");
-                    if (parts.length > 1) {
-                        projectName = parts[1].trim();
+                    // 项目名称在F列（索引5）
+                    String projectNameValue = getCellStringValue(row.getCell(5));
+                    if (projectNameValue != null && !projectNameValue.trim().isEmpty()) {
+                        projectName = projectNameValue.trim();
                     }
                     continue;
                 }
@@ -150,19 +150,12 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
                     String[] containerParts = firstCellValue.split(" ");
                     if (containerParts.length >= 2) {
                         currentContainerNo = containerParts[1]; // BNO-1-1
-                        if (containerParts.length >= 3) {
-                            currentContainerType = containerParts[2]; // 1/2
-                        }
                     }
                     
-                    // 检查下一行是否是物料类型（井道材料、导轨等）
-                    Row nextRow = sheet.getRow(row.getRowNum() + 1);
-                    if (nextRow != null) {
-                        String nextRowFirstCell = getCellStringValue(nextRow.getCell(0));
-                        if (nextRowFirstCell != null && (nextRowFirstCell.contains("井道材料") || 
-                            nextRowFirstCell.contains("导轨") || nextRowFirstCell.contains("木箱"))) {
-                            currentContainerType = nextRowFirstCell;
-                        }
+                    // ContainerType从D列（索引3）提取
+                    String containerTypeValue = getCellStringValue(row.getCell(3));
+                    if (containerTypeValue != null && !containerTypeValue.trim().isEmpty()) {
+                        currentContainerType = containerTypeValue.trim();
                     }
                     
                     currentComponents.clear();
