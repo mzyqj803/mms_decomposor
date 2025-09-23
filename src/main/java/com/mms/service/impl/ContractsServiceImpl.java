@@ -36,7 +36,40 @@ public class ContractsServiceImpl implements ContractsService {
             return cachedResult;
         }
         
-        Page<Contracts> contracts = contractsRepository.findByContractNoOrProjectNameContaining(contractNo, projectName, pageable);
+        Page<Contracts> contracts;
+        
+        // 根据参数情况选择不同的查询方法
+        if (status != null) {
+            // 如果指定了状态，先按状态查询
+            if (contractNo != null && !contractNo.trim().isEmpty() && projectName != null && !projectName.trim().isEmpty()) {
+                // 两个参数都有值 + 状态
+                contracts = contractsRepository.findByContractNoAndProjectNameContainingAndStatus(contractNo, projectName, status, pageable);
+            } else if (contractNo != null && !contractNo.trim().isEmpty()) {
+                // 只有合同号有值 + 状态
+                contracts = contractsRepository.findByContractNoContainingAndStatus(contractNo, status, pageable);
+            } else if (projectName != null && !projectName.trim().isEmpty()) {
+                // 只有项目名称有值 + 状态
+                contracts = contractsRepository.findByProjectNameContainingAndStatus(projectName, status, pageable);
+            } else {
+                // 只有状态
+                contracts = contractsRepository.findByStatus(status, pageable);
+            }
+        } else {
+            // 没有状态过滤
+            if (contractNo != null && !contractNo.trim().isEmpty() && projectName != null && !projectName.trim().isEmpty()) {
+                // 两个参数都有值
+                contracts = contractsRepository.findByContractNoAndProjectNameContaining(contractNo, projectName, pageable);
+            } else if (contractNo != null && !contractNo.trim().isEmpty()) {
+                // 只有合同号有值
+                contracts = contractsRepository.findByContractNoContaining(contractNo, pageable);
+            } else if (projectName != null && !projectName.trim().isEmpty()) {
+                // 只有项目名称有值
+                contracts = contractsRepository.findByProjectNameContaining(projectName, pageable);
+            } else {
+                // 都没有值，查询所有
+                contracts = contractsRepository.findAll(pageable);
+            }
+        }
         
         // 缓存5分钟
         cacheService.set(cacheKey, contracts, 5, TimeUnit.MINUTES);

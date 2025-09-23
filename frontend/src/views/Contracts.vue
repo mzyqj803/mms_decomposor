@@ -249,14 +249,27 @@ const loadContracts = async () => {
   loading.value = true
   try {
     const params = {
-      page: pagination.currentPage,
-      size: pagination.pageSize,
-      ...searchForm
+      page: pagination.currentPage - 1, // Spring Data JPA 使用0基索引
+      size: pagination.pageSize
     }
+    
+    // 只添加非空的搜索参数
+    if (searchForm.contractNo && searchForm.contractNo.trim()) {
+      params.contractNo = searchForm.contractNo.trim()
+    }
+    if (searchForm.projectName && searchForm.projectName.trim()) {
+      params.projectName = searchForm.projectName.trim()
+    }
+    if (searchForm.status) {
+      params.status = searchForm.status
+    }
+    
     const response = await contractsApi.getContracts(params)
-    contracts.value = response.data
-    pagination.total = response.total
+    // 由于响应拦截器已经返回了response.data，所以response就是后端返回的数据
+    contracts.value = response.content || []
+    pagination.total = response.totalElements || 0
   } catch (error) {
+    console.error('加载合同列表失败:', error)
     ElMessage.error('加载合同列表失败')
   } finally {
     loading.value = false

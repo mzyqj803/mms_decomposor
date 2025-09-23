@@ -156,7 +156,7 @@ const loadComponents = async () => {
   loading.value = true
   try {
     const params = {
-      page: pagination.currentPage,
+      page: pagination.currentPage - 1, // 后端页码从0开始
       size: pagination.pageSize,
       componentCode: searchForm.componentCode || undefined,
       name: searchForm.name || undefined,
