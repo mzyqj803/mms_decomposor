@@ -119,6 +119,17 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>**/data_init.sql</exclude>
+                    <exclude>**/sql/data_init/**</exclude>
+                    <exclude>sql/data_init/**</exclude>
+                </excludes>
+            </resource>
+        </resources>
+        
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -157,6 +168,20 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            
+            <!-- Maven Resources Plugin to exclude data_init.sql -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/data_init.sql</exclude>
+                        <exclude>**/sql/data_init/**</exclude>
+                        <exclude>sql/data_init/**</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
