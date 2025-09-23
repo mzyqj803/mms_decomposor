@@ -60,15 +60,33 @@
       <div class="info-card">
         <div class="card-title">
           装箱单信息
-          <el-button 
-            v-if="!contract.containers || contract.containers.length === 0"
-            type="primary" 
-            size="small" 
-            @click="generateContainer"
-            :loading="generating"
-          >
-            生成装箱单
-          </el-button>
+          <div class="card-actions">
+            <el-button 
+              type="primary" 
+              size="small" 
+              @click="showUploadDialog"
+            >
+              <el-icon><Upload /></el-icon>
+              上传装箱单
+            </el-button>
+            <el-button 
+              type="success" 
+              size="small" 
+              @click="showCloneDialog"
+            >
+              <el-icon><CopyDocument /></el-icon>
+              克隆装箱单
+            </el-button>
+            <el-button 
+              v-if="!contract.containers || contract.containers.length === 0"
+              type="primary" 
+              size="small" 
+              @click="generateContainer"
+              :loading="generating"
+            >
+              生成装箱单
+            </el-button>
+          </div>
         </div>
         
         <div v-if="contract.containers && contract.containers.length > 0">
@@ -205,6 +223,99 @@
         </el-button>
       </template>
     </el-dialog>
+    
+    <!-- 上传装箱单对话框 -->
+    <el-dialog
+      v-model="uploadDialogVisible"
+      title="上传装箱单"
+      width="600px"
+      @close="handleUploadDialogClose"
+    >
+      <div class="upload-section">
+        <el-upload
+          ref="uploadRef"
+          :auto-upload="false"
+          :on-change="handleFileChange"
+          :before-upload="beforeUpload"
+          accept=".xlsx,.xls"
+          drag
+        >
+          <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+          <div class="el-upload__text">
+            将文件拖到此处，或<em>点击上传</em>
+          </div>
+          <template #tip>
+            <div class="el-upload__tip">
+              只能上传Excel文件(.xlsx/.xls)，且文件大小不超过10MB
+            </div>
+          </template>
+        </el-upload>
+        
+        <div v-if="selectedFile" class="file-info">
+          <el-text type="success">
+            <el-icon><Document /></el-icon>
+            已选择文件: {{ selectedFile.name }}
+          </el-text>
+        </div>
+      </div>
+      
+      <template #footer>
+        <el-button @click="uploadDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="uploadFile" :loading="uploading" :disabled="!selectedFile">
+          上传
+        </el-button>
+      </template>
+    </el-dialog>
+    
+    <!-- 克隆装箱单对话框 -->
+    <el-dialog
+      v-model="cloneDialogVisible"
+      title="克隆装箱单"
+      width="600px"
+      @close="handleCloneDialogClose"
+    >
+      <div class="clone-section">
+        <el-form :model="cloneForm" label-width="120px">
+          <el-form-item label="源合同">
+            <el-select
+              v-model="cloneForm.sourceContractId"
+              placeholder="请选择要克隆的合同"
+              style="width: 100%"
+              filterable
+            >
+              <el-option
+                v-for="contract in availableContracts"
+                :key="contract.id"
+                :label="`${contract.contractNo} - ${contract.projectName}`"
+                :value="contract.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        
+        <div class="clone-tips">
+          <el-alert
+            title="克隆说明"
+            type="info"
+            :closable="false"
+            show-icon
+          >
+            <template #default>
+              <p>• 将复制源合同的所有装箱单及其组件信息</p>
+              <p>• 克隆后的装箱单将关联到当前合同</p>
+              <p>• 装箱单号和组件信息将保持不变</p>
+            </template>
+          </el-alert>
+        </div>
+      </div>
+      
+      <template #footer>
+        <el-button @click="cloneDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="cloneContainers" :loading="cloning" :disabled="!cloneForm.sourceContractId">
+          克隆
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -222,12 +333,21 @@ const loading = ref(false)
 const generating = ref(false)
 const processing = ref(false)
 const savingParams = ref(false)
+const uploading = ref(false)
+const cloning = ref(false)
 const contract = ref(null)
 const breakdownResult = ref(null)
 const editParamsDialogVisible = ref(false)
+const uploadDialogVisible = ref(false)
+const cloneDialogVisible = ref(false)
 const editParamsForm = ref({
   parameters: []
 })
+const selectedFile = ref(null)
+const cloneForm = ref({
+  sourceContractId: null
+})
+const availableContracts = ref([])
 
 const getStatusType = (status) => {
   const statusMap = {
@@ -412,6 +532,105 @@ const handleEditParamsDialogClose = () => {
   editParamsForm.value.parameters = []
 }
 
+// 装箱单上传相关方法
+const showUploadDialog = () => {
+  uploadDialogVisible.value = true
+}
+
+const showCloneDialog = async () => {
+  cloneDialogVisible.value = true
+  await loadAvailableContracts()
+}
+
+const handleFileChange = (file) => {
+  selectedFile.value = file.raw
+}
+
+const beforeUpload = (file) => {
+  const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+                 file.type === 'application/vnd.ms-excel'
+  const isLt10M = file.size / 1024 / 1024 < 10
+
+  if (!isExcel) {
+    ElMessage.error('只能上传Excel文件!')
+    return false
+  }
+  if (!isLt10M) {
+    ElMessage.error('文件大小不能超过10MB!')
+    return false
+  }
+  return true
+}
+
+const uploadFile = async () => {
+  if (!selectedFile.value) {
+    ElMessage.warning('请选择要上传的文件')
+    return
+  }
+
+  uploading.value = true
+  try {
+    const contractId = route.params.id
+    const response = await contractsApi.uploadContainerFile(contractId, selectedFile.value)
+    
+    if (response.success) {
+      ElMessage.success(`上传成功！共创建 ${response.count} 个装箱单`)
+      uploadDialogVisible.value = false
+      await loadContract() // 重新加载合同数据
+    } else {
+      ElMessage.error(response.message)
+    }
+  } catch (error) {
+    console.error('上传文件失败:', error)
+    ElMessage.error('上传文件失败')
+  } finally {
+    uploading.value = false
+  }
+}
+
+const cloneContainers = async () => {
+  if (!cloneForm.value.sourceContractId) {
+    ElMessage.warning('请选择源合同')
+    return
+  }
+
+  cloning.value = true
+  try {
+    const contractId = route.params.id
+    const response = await contractsApi.cloneContainers(contractId, cloneForm.value.sourceContractId)
+    
+    if (response.success) {
+      ElMessage.success(`克隆成功！共克隆 ${response.count} 个装箱单`)
+      cloneDialogVisible.value = false
+      await loadContract() // 重新加载合同数据
+    } else {
+      ElMessage.error(response.message)
+    }
+  } catch (error) {
+    console.error('克隆装箱单失败:', error)
+    ElMessage.error('克隆装箱单失败')
+  } finally {
+    cloning.value = false
+  }
+}
+
+const loadAvailableContracts = async () => {
+  try {
+    const response = await contractsApi.getContracts({ page: 0, size: 1000 })
+    availableContracts.value = response.content || []
+  } catch (error) {
+    console.error('加载合同列表失败:', error)
+  }
+}
+
+const handleUploadDialogClose = () => {
+  selectedFile.value = null
+}
+
+const handleCloneDialogClose = () => {
+  cloneForm.value.sourceContractId = null
+}
+
 onMounted(() => {
   loadContract()
 })
@@ -461,6 +680,11 @@ onMounted(() => {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      
+      .card-actions {
+        display: flex;
+        gap: 8px;
+      }
     }
   }
   
@@ -494,6 +718,33 @@ onMounted(() => {
       display: flex;
       align-items: center;
       gap: 5px;
+    }
+  }
+}
+
+.upload-section {
+  .file-info {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f0f9ff;
+    border-radius: 4px;
+    border: 1px solid #b3d8ff;
+    
+    .el-text {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+  }
+}
+
+.clone-section {
+  .clone-tips {
+    margin-top: 20px;
+    
+    p {
+      margin: 5px 0;
+      font-size: 14px;
     }
   }
 }

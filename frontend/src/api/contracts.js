@@ -68,5 +68,28 @@ export const contractsApi = {
   // 更新合同参数
   updateContractParameters(id, parameters) {
     return api.put(`/contracts/${id}/parameters/batch/replace`, parameters)
+  },
+  
+  // 上传装箱单文件
+  uploadContainerFile(id, file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/contracts/${id}/containers/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+  
+  // 查找类似的装箱单
+  findSimilarContainers(id) {
+    return api.get(`/contracts/${id}/containers/similar`)
+  },
+  
+  // 克隆装箱单
+  cloneContainers(id, sourceContractId) {
+    return api.post(`/contracts/${id}/containers/clone`, null, {
+      params: { sourceContractId }
+    })
   }
 }
