@@ -10,11 +10,13 @@ services:
       MYSQL_PASSWORD: mms_password
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
-      - ./src/main/resources/sql/data_init/data_init.sql:/docker-entrypoint-initdb.d/data_init.sql
+      - ./src/main/resources/sql/data_init/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./src/main/resources/sql/data_init/data_init.sql:/docker-entrypoint-initdb.d/02-data_init.sql
     networks:
       - mms-network
 
