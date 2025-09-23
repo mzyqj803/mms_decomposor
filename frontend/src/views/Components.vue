@@ -172,9 +172,9 @@ const loadComponents = async () => {
     
     const response = await componentsApi.getComponents(params)
     
-    if (response && response.data) {
-      components.value = response.data.content || response.data
-      pagination.total = response.data.totalElements || response.data.total || 0
+    if (response && response.content) {
+      components.value = response.content
+      pagination.total = response.totalElements || 0
     } else {
       components.value = []
       pagination.total = 0

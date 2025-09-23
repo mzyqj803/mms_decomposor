@@ -173,6 +173,12 @@ public class ComponentsServiceImpl implements ComponentsService {
     
     private void clearComponentsCache() {
         // 清除所有零部件列表相关的缓存
-        // 这里可以使用Redis的keys命令或者维护一个缓存键的集合
+        try {
+            // 清除所有以 "components:" 开头的缓存键
+            cacheService.deletePattern("components:*");
+            log.info("已清除零部件列表相关缓存");
+        } catch (Exception e) {
+            log.warn("清除零部件缓存失败: {}", e.getMessage());
+        }
     }
 }

@@ -12,7 +12,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/components")
+@RequestMapping("/components")
 @RequiredArgsConstructor
 public class ComponentsController {
     

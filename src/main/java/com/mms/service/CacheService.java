@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -83,5 +84,18 @@ public class CacheService {
      */
     public boolean expire(String key, long timeout, TimeUnit timeUnit) {
         return Boolean.TRUE.equals(redisTemplate.expire(key, timeout, timeUnit));
+    }
+    
+    /**
+     * 根据模式删除缓存
+     * @param pattern 模式，支持通配符 * 和 ?
+     * @return 删除的键数量
+     */
+    public long deletePattern(String pattern) {
+        Set<String> keys = redisTemplate.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            return redisTemplate.delete(keys);
+        }
+        return 0;
     }
 }
