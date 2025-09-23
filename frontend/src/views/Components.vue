@@ -130,6 +130,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
+import { componentsApi } from '@/api/components'
 
 const loading = ref(false)
 
@@ -139,43 +140,12 @@ const searchForm = reactive({
   categoryCode: ''
 })
 
-const components = ref([
-  {
-    id: 1,
-    categoryCode: 'ELEVATOR',
-    componentCode: 'ELE-001',
-    name: '电梯主机',
-    comment: '电梯核心动力设备',
-    procurementFlag: false,
-    commonPartsFlag: false,
-    entryTs: '2024-01-15 10:00:00'
-  },
-  {
-    id: 2,
-    categoryCode: 'DOOR',
-    componentCode: 'DOOR-001',
-    name: '电梯门机',
-    comment: '电梯门开关控制设备',
-    procurementFlag: false,
-    commonPartsFlag: true,
-    entryTs: '2024-01-15 10:00:00'
-  },
-  {
-    id: 3,
-    categoryCode: 'CABIN',
-    componentCode: 'CABIN-001',
-    name: '电梯轿厢',
-    comment: '电梯载客厢体',
-    procurementFlag: false,
-    commonPartsFlag: false,
-    entryTs: '2024-01-15 10:00:00'
-  }
-])
+const components = ref([])
 
 const pagination = reactive({
   currentPage: 1,
   pageSize: 20,
-  total: 3
+  total: 0
 })
 
 const formatDate = (date) => {
@@ -185,10 +155,35 @@ const formatDate = (date) => {
 const loadComponents = async () => {
   loading.value = true
   try {
-    // TODO: 调用API加载零部件数据
-    console.log('Loading components...')
+    const params = {
+      page: pagination.currentPage,
+      size: pagination.pageSize,
+      componentCode: searchForm.componentCode || undefined,
+      name: searchForm.name || undefined,
+      categoryCode: searchForm.categoryCode || undefined
+    }
+    
+    // 移除空值参数
+    Object.keys(params).forEach(key => {
+      if (params[key] === undefined || params[key] === '') {
+        delete params[key]
+      }
+    })
+    
+    const response = await componentsApi.getComponents(params)
+    
+    if (response && response.data) {
+      components.value = response.data.content || response.data
+      pagination.total = response.data.totalElements || response.data.total || 0
+    } else {
+      components.value = []
+      pagination.total = 0
+    }
   } catch (error) {
+    console.error('加载零部件列表失败:', error)
     ElMessage.error('加载零部件列表失败')
+    components.value = []
+    pagination.total = 0
   } finally {
     loading.value = false
   }
@@ -232,11 +227,14 @@ const handleDelete = async (row) => {
       }
     )
     
-    // TODO: 调用API删除零部件
+    await componentsApi.deleteComponent(row.id)
     ElMessage.success('删除成功')
     loadComponents()
-  } catch {
-    // 用户取消删除
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除零部件失败:', error)
+      ElMessage.error('删除失败')
+    }
   }
 }
 
