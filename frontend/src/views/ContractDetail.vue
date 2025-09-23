@@ -30,6 +30,32 @@
         </el-descriptions>
       </div>
       
+      <!-- 合同参数 -->
+      <div class="info-card">
+        <div class="card-title">
+          合同参数
+          <el-button 
+            type="primary" 
+            size="small" 
+            @click="showEditParamsDialog"
+          >
+            <el-icon><Edit /></el-icon>
+            编辑参数
+          </el-button>
+        </div>
+        
+        <div v-if="contract.parameters && contract.parameters.length > 0">
+          <el-table :data="contract.parameters" stripe>
+            <el-table-column prop="paramName" label="参数名称" />
+            <el-table-column prop="paramValue" label="参数值" />
+          </el-table>
+        </div>
+        
+        <div v-else class="empty-state">
+          <el-empty description="暂无合同参数" />
+        </div>
+      </div>
+      
       <!-- 装箱单信息 -->
       <div class="info-card">
         <div class="card-title">
@@ -115,6 +141,70 @@
         </div>
       </div>
     </div>
+    
+    <!-- 编辑参数对话框 -->
+    <el-dialog
+      v-model="editParamsDialogVisible"
+      title="编辑合同参数"
+      width="800px"
+      @close="handleEditParamsDialogClose"
+    >
+      <div class="parameters-section">
+        <div class="section-header">
+          <h4>合同参数设置</h4>
+          <el-button type="primary" size="small" @click="addParameter">
+            <el-icon><Plus /></el-icon>
+            添加参数
+          </el-button>
+        </div>
+        
+        <el-table :data="editParamsForm.parameters" style="width: 100%" border>
+          <el-table-column prop="paramName" label="参数名称" width="200">
+            <template #default="{ row, $index }">
+              <el-input 
+                v-model="row.paramName" 
+                placeholder="请输入参数名称"
+                @blur="validateParameterName($index)"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column prop="paramValue" label="参数值" min-width="300">
+            <template #default="{ row }">
+              <el-input 
+                v-model="row.paramValue" 
+                placeholder="请输入参数值"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="80" align="center">
+            <template #default="{ $index }">
+              <el-button 
+                type="danger" 
+                size="small" 
+                @click="removeParameter($index)"
+                :disabled="editParamsForm.parameters.length <= 1"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        
+        <div class="parameter-tips">
+          <el-text type="info" size="small">
+            <el-icon><InfoFilled /></el-icon>
+            提示：参数名称不能重复，建议使用有意义的参数名称，如"电梯类型"、"载重"、"速度"等
+          </el-text>
+        </div>
+      </div>
+      
+      <template #footer>
+        <el-button @click="editParamsDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveParameters" :loading="savingParams">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -131,8 +221,13 @@ const router = useRouter()
 const loading = ref(false)
 const generating = ref(false)
 const processing = ref(false)
+const savingParams = ref(false)
 const contract = ref(null)
 const breakdownResult = ref(null)
+const editParamsDialogVisible = ref(false)
+const editParamsForm = ref({
+  parameters: []
+})
 
 const getStatusType = (status) => {
   const statusMap = {
@@ -253,6 +348,70 @@ const goBack = () => {
   router.go(-1)
 }
 
+// 参数编辑相关方法
+const showEditParamsDialog = () => {
+  // 初始化编辑表单
+  editParamsForm.value.parameters = contract.value.parameters && contract.value.parameters.length > 0
+    ? [...contract.value.parameters]
+    : [{ paramName: '', paramValue: '' }]
+  
+  editParamsDialogVisible.value = true
+}
+
+const addParameter = () => {
+  editParamsForm.value.parameters.push({ paramName: '', paramValue: '' })
+}
+
+const removeParameter = (index) => {
+  if (editParamsForm.value.parameters.length > 1) {
+    editParamsForm.value.parameters.splice(index, 1)
+  }
+}
+
+const validateParameterName = (index) => {
+  const currentName = editParamsForm.value.parameters[index].paramName
+  if (!currentName) return
+  
+  const duplicateIndex = editParamsForm.value.parameters.findIndex((param, i) => 
+    i !== index && param.paramName === currentName
+  )
+  
+  if (duplicateIndex !== -1) {
+    ElMessage.warning('参数名称不能重复')
+    editParamsForm.value.parameters[index].paramName = ''
+  }
+}
+
+const saveParameters = async () => {
+  savingParams.value = true
+  try {
+    const contractId = route.params.id
+    
+    // 过滤掉空的参数
+    const validParameters = editParamsForm.value.parameters.filter(param => 
+      param.paramName.trim() && param.paramValue.trim()
+    )
+    
+    // 调用API保存参数
+    await contractsApi.updateContractParameters(contractId, validParameters)
+    
+    ElMessage.success('参数保存成功')
+    editParamsDialogVisible.value = false
+    
+    // 重新加载合同数据
+    await loadContract()
+  } catch (error) {
+    console.error('保存参数失败:', error)
+    ElMessage.error('保存参数失败')
+  } finally {
+    savingParams.value = false
+  }
+}
+
+const handleEditParamsDialogClose = () => {
+  editParamsForm.value.parameters = []
+}
+
 onMounted(() => {
   loadContract()
 })
@@ -307,6 +466,35 @@ onMounted(() => {
   
   .empty-state {
     padding: 40px 0;
+  }
+}
+
+.parameters-section {
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    
+    h4 {
+      margin: 0;
+      color: #303133;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+  
+  .parameter-tips {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f4f4f5;
+    border-radius: 4px;
+    
+    .el-text {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
   }
 }
 </style>

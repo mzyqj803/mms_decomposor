@@ -63,5 +63,10 @@ export const contractsApi = {
       params: { format },
       responseType: 'blob'
     })
+  },
+  
+  // 更新合同参数
+  updateContractParameters(id, parameters) {
+    return api.put(`/contracts/${id}/parameters/batch/replace`, parameters)
   }
 }

@@ -3,6 +3,7 @@ package com.mms.service.impl;
 import com.mms.entity.Contracts;
 import com.mms.repository.ContractsRepository;
 import com.mms.service.CacheService;
+import com.mms.service.ContractParametersService;
 import com.mms.service.ContractsService;
 import com.mms.service.DistributedLockService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class ContractsServiceImpl implements ContractsService {
     private final ContractsRepository contractsRepository;
     private final CacheService cacheService;
     private final DistributedLockService distributedLockService;
+    private final ContractParametersService contractParametersService;
     
     @Override
     public Page<Contracts> getContracts(String contractNo, String projectName, Contracts.ContractStatus status, Pageable pageable) {
@@ -105,6 +107,12 @@ public class ContractsServiceImpl implements ContractsService {
         
         contract.setStatus(Contracts.ContractStatus.DRAFT);
         Contracts savedContract = contractsRepository.save(contract);
+        
+        // 保存合同参数
+        if (contract.getParameters() != null && !contract.getParameters().isEmpty()) {
+            contract.getParameters().forEach(param -> param.setContract(savedContract));
+            contractParametersService.saveContractParameters(savedContract.getId(), contract.getParameters());
+        }
         
         // 清除相关缓存
         clearContractsCache();

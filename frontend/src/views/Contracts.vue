@@ -119,28 +119,85 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="600px"
+      width="800px"
       @close="handleDialogClose"
     >
-      <el-form
-        ref="contractFormRef"
-        :model="contractForm"
-        :rules="contractRules"
-        label-width="100px"
-      >
-        <el-form-item label="合同号" prop="contractNo">
-          <el-input v-model="contractForm.contractNo" placeholder="请输入合同号" />
-        </el-form-item>
-        <el-form-item label="客户名称" prop="clientName">
-          <el-input v-model="contractForm.clientName" placeholder="请输入客户名称" />
-        </el-form-item>
-        <el-form-item label="项目名称" prop="projectName">
-          <el-input v-model="contractForm.projectName" placeholder="请输入项目名称" />
-        </el-form-item>
-        <el-form-item label="数量" prop="quantity">
-          <el-input-number v-model="contractForm.quantity" :min="1" style="width: 100%;" />
-        </el-form-item>
-      </el-form>
+      <el-tabs v-model="activeTab" type="border-card">
+        <!-- 基本信息 -->
+        <el-tab-pane label="基本信息" name="basic">
+          <el-form
+            ref="contractFormRef"
+            :model="contractForm"
+            :rules="contractRules"
+            label-width="100px"
+          >
+            <el-form-item label="合同号" prop="contractNo">
+              <el-input v-model="contractForm.contractNo" placeholder="请输入合同号" />
+            </el-form-item>
+            <el-form-item label="客户名称" prop="clientName">
+              <el-input v-model="contractForm.clientName" placeholder="请输入客户名称" />
+            </el-form-item>
+            <el-form-item label="项目名称" prop="projectName">
+              <el-input v-model="contractForm.projectName" placeholder="请输入项目名称" />
+            </el-form-item>
+            <el-form-item label="数量" prop="quantity">
+              <el-input-number v-model="contractForm.quantity" :min="1" style="width: 100%;" />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+        
+        <!-- 合同参数 -->
+        <el-tab-pane label="合同参数" name="parameters">
+          <div class="parameters-section">
+            <div class="section-header">
+              <h4>合同参数设置</h4>
+              <el-button type="primary" size="small" @click="addParameter">
+                <el-icon><Plus /></el-icon>
+                添加参数
+              </el-button>
+            </div>
+            
+            <el-table :data="contractForm.parameters" style="width: 100%" border>
+              <el-table-column prop="paramName" label="参数名称" width="200">
+                <template #default="{ row, $index }">
+                  <el-input 
+                    v-model="row.paramName" 
+                    placeholder="请输入参数名称"
+                    @blur="validateParameterName($index)"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column prop="paramValue" label="参数值" min-width="300">
+                <template #default="{ row }">
+                  <el-input 
+                    v-model="row.paramValue" 
+                    placeholder="请输入参数值"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="80" align="center">
+                <template #default="{ $index }">
+                  <el-button 
+                    type="danger" 
+                    size="small" 
+                    @click="removeParameter($index)"
+                    :disabled="contractForm.parameters.length <= 1"
+                  >
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            
+            <div class="parameter-tips">
+              <el-text type="info" size="small">
+                <el-icon><InfoFilled /></el-icon>
+                提示：参数名称不能重复，建议使用有意义的参数名称，如"电梯类型"、"载重"、"速度"等
+              </el-text>
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
       
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -165,6 +222,7 @@ const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
 const contractFormRef = ref()
+const activeTab = ref('basic')
 
 const searchForm = reactive({
   contractNo: '',
@@ -176,7 +234,10 @@ const contractForm = reactive({
   contractNo: '',
   clientName: '',
   projectName: '',
-  quantity: 1
+  quantity: 1,
+  parameters: [
+    { paramName: '', paramValue: '' }
+  ]
 })
 
 const contracts = ref([])
@@ -295,9 +356,38 @@ const handleCreate = () => {
     contractNo: '',
     clientName: '',
     projectName: '',
-    quantity: 1
+    quantity: 1,
+    parameters: [
+      { paramName: '', paramValue: '' }
+    ]
   })
+  activeTab.value = 'basic'
   dialogVisible.value = true
+}
+
+// 合同参数相关方法
+const addParameter = () => {
+  contractForm.parameters.push({ paramName: '', paramValue: '' })
+}
+
+const removeParameter = (index) => {
+  if (contractForm.parameters.length > 1) {
+    contractForm.parameters.splice(index, 1)
+  }
+}
+
+const validateParameterName = (index) => {
+  const currentName = contractForm.parameters[index].paramName
+  if (!currentName) return
+  
+  const duplicateIndex = contractForm.parameters.findIndex((param, i) => 
+    i !== index && param.paramName === currentName
+  )
+  
+  if (duplicateIndex !== -1) {
+    ElMessage.warning('参数名称不能重复')
+    contractForm.parameters[index].paramName = ''
+  }
 }
 
 const handleView = (row) => {
@@ -336,16 +426,33 @@ const handleSubmit = async () => {
     if (valid) {
       submitting.value = true
       try {
+        // 过滤掉空的参数
+        const validParameters = contractForm.parameters.filter(param => 
+          param.paramName.trim() && param.paramValue.trim()
+        )
+        
+        // 准备合同数据
+        const contractData = {
+          contractNo: contractForm.contractNo,
+          clientName: contractForm.clientName,
+          projectName: contractForm.projectName,
+          quantity: contractForm.quantity,
+          parameters: validParameters
+        }
+        
         if (contractForm.id) {
-          await contractsApi.updateContract(contractForm.id, contractForm)
+          await contractsApi.updateContract(contractForm.id, contractData)
           ElMessage.success('合同更新成功')
         } else {
-          await contractsApi.createContract(contractForm)
+          const response = await contractsApi.createContract(contractData)
+          contractForm.id = response.id
           ElMessage.success('合同创建成功')
         }
+        
         dialogVisible.value = false
         loadContracts()
       } catch (error) {
+        console.error('操作失败:', error)
         ElMessage.error('操作失败')
       } finally {
         submitting.value = false
@@ -427,6 +534,35 @@ onMounted(() => {
       margin-top: 20px;
       display: flex;
       justify-content: center;
+    }
+  }
+}
+
+.parameters-section {
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    
+    h4 {
+      margin: 0;
+      color: #303133;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+  
+  .parameter-tips {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f4f4f5;
+    border-radius: 4px;
+    
+    .el-text {
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
   }
 }
