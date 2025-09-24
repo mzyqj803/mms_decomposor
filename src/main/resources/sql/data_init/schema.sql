@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS containers_components_summary (
 -- 10) Container_Components_Breakdown
 CREATE TABLE IF NOT EXISTS container_components_breakdown (
   ID                         INT PRIMARY KEY AUTO_INCREMENT,
-  Container_Componenet_ID    INT,
+  Container_Component_ID    INT,
   Sub_Component_ID            INT,
   Container_ID                  INT,
   Quantity                          INT,
@@ -160,10 +160,10 @@ CREATE TABLE IF NOT EXISTS container_components_breakdown (
   Entry_User                                VARCHAR(50) DEFAULT 'SYS_USER',
   Last_Update_TS                                TIMESTAMP DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP(),
   Last_Update_User                                 VARCHAR(50) DEFAULT 'SYS_USER',
-  INDEX idx_ccb_ccid      (Container_Componenet_ID),
+  INDEX idx_ccb_ccid      (Container_Component_ID),
   INDEX idx_ccb_subcomp   (Sub_Component_ID),
   INDEX idx_ccb_container (Container_ID),
-  CONSTRAINT fk_ccb_ccid      FOREIGN KEY (Container_Componenet_ID) REFERENCES container_components(ID),
+  CONSTRAINT fk_ccb_ccid      FOREIGN KEY (Container_Component_ID) REFERENCES container_components(ID),
   CONSTRAINT fk_ccb_subcomp   FOREIGN KEY (Sub_Component_ID)        REFERENCES components(ID),
   CONSTRAINT fk_ccb_container FOREIGN KEY (Container_ID)            REFERENCES containers(ID)
 ) ENGINE=InnoDB;
