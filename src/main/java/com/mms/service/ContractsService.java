@@ -44,10 +44,6 @@ public interface ContractsService {
      */
     Map<String, Object> generateContainer(Long contractId);
     
-    /**
-     * 上传装箱单
-     */
-    Map<String, Object> uploadContainer(Long contractId, MultipartFile file);
     
     /**
      * 开始工艺分解

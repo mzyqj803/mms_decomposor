@@ -22,18 +22,26 @@
         <!-- 搜索栏 -->
         <div class="search-bar">
           <el-form :model="searchForm" inline>
-            <el-form-item label="装箱单号">
-              <el-input
-                v-model="searchForm.containerNo"
-                placeholder="请输入装箱单号"
-                clearable
-                style="width: 200px;"
-              />
-            </el-form-item>
             <el-form-item label="合同号">
               <el-input
                 v-model="searchForm.contractNo"
                 placeholder="请输入合同号"
+                clearable
+                style="width: 200px;"
+              />
+            </el-form-item>
+            <el-form-item label="项目名称">
+              <el-input
+                v-model="searchForm.projectName"
+                placeholder="请输入项目名称"
+                clearable
+                style="width: 200px;"
+              />
+            </el-form-item>
+            <el-form-item label="装箱单号">
+              <el-input
+                v-model="searchForm.containerNo"
+                placeholder="请输入装箱单号"
                 clearable
                 style="width: 200px;"
               />
@@ -58,27 +66,17 @@
           stripe
           style="width: 100%"
         >
-          <el-table-column prop="containerNo" label="装箱单号" width="150" />
           <el-table-column prop="contractNo" label="合同号" width="150" />
-          <el-table-column prop="name" label="装箱单名称" min-width="200" />
-          <el-table-column prop="containerSize" label="尺寸" width="120" />
-          <el-table-column prop="containerWeight" label="重量" width="120" />
-          <el-table-column prop="componentCount" label="组件数量" width="100" align="center" />
-          <el-table-column prop="entryTs" label="创建时间" width="180">
-            <template #default="{ row }">
-              {{ formatDate(row.entryTs) }}
-            </template>
-          </el-table-column>
+          <el-table-column prop="projectName" label="项目名称" min-width="200" />
+          <el-table-column prop="containerNo" label="箱包号" width="150" />
+          <el-table-column prop="name" label="箱包名称" min-width="200" />
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" size="small" @click="handleView(row)">
-                查看
-              </el-button>
               <el-button type="success" size="small" @click="handleEdit(row)">
-                编辑
+                编辑箱包
               </el-button>
               <el-button type="danger" size="small" @click="handleDelete(row)">
-                删除
+                删除箱包
               </el-button>
             </template>
           </el-table-column>
@@ -98,6 +96,12 @@
         </div>
       </div>
     </div>
+    
+    <!-- 新建装箱单对话框 -->
+    <CreateContainerDialog
+      v-model="showCreateDialog"
+      @success="handleCreateSuccess"
+    />
   </div>
 </template>
 
@@ -105,41 +109,24 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
+import CreateContainerDialog from '@/components/CreateContainerDialog.vue'
+import containersApi from '@/api/containers'
 
 const loading = ref(false)
+const showCreateDialog = ref(false)
 
 const searchForm = reactive({
   containerNo: '',
-  contractNo: ''
+  contractNo: '',
+  projectName: ''
 })
 
-const containers = ref([
-  {
-    id: 1,
-    containerNo: 'PACK-001',
-    contractNo: 'CT-2024-001',
-    name: '某大厦电梯装箱单',
-    containerSize: '2000x1000x1000',
-    containerWeight: '500kg',
-    componentCount: 25,
-    entryTs: '2024-01-15 10:00:00'
-  },
-  {
-    id: 2,
-    containerNo: 'PACK-002',
-    contractNo: 'CT-2024-002',
-    name: '商业中心电梯装箱单',
-    containerSize: '2500x1200x1200',
-    containerWeight: '600kg',
-    componentCount: 30,
-    entryTs: '2024-01-15 11:00:00'
-  }
-])
+const containers = ref([])
 
 const pagination = reactive({
   currentPage: 1,
   pageSize: 20,
-  total: 2
+  total: 0
 })
 
 const formatDate = (date) => {
@@ -149,10 +136,28 @@ const formatDate = (date) => {
 const loadContainers = async () => {
   loading.value = true
   try {
-    // TODO: 调用API加载装箱单数据
-    console.log('Loading containers...')
+    const response = await containersApi.getContainers({
+      containerNo: searchForm.containerNo,
+      contractNo: searchForm.contractNo,
+      projectName: searchForm.projectName,
+      page: pagination.currentPage - 1,
+      size: pagination.pageSize
+    })
+    
+    containers.value = response.content || []
+    pagination.total = response.totalElements || 0
+    
+    // 处理数据，添加合同号和项目名称等信息
+    containers.value = containers.value.map(container => ({
+      ...container,
+      contractNo: container.contract?.contractNo || '',
+      projectName: container.contract?.projectName || '',
+      componentCount: container.components?.length || 0
+    }))
+    
   } catch (error) {
     ElMessage.error('加载装箱单列表失败')
+    console.error('Load containers error:', error)
   } finally {
     loading.value = false
   }
@@ -166,13 +171,14 @@ const handleSearch = () => {
 const handleReset = () => {
   Object.assign(searchForm, {
     containerNo: '',
-    contractNo: ''
+    contractNo: '',
+    projectName: ''
   })
   handleSearch()
 }
 
 const handleCreate = () => {
-  ElMessage.info('新建装箱单功能开发中...')
+  showCreateDialog.value = true
 }
 
 const handleView = (row) => {
@@ -180,13 +186,14 @@ const handleView = (row) => {
 }
 
 const handleEdit = (row) => {
-  ElMessage.info(`编辑装箱单: ${row.name}`)
+  // TODO: 实现编辑箱包功能
+  ElMessage.info(`编辑箱包: ${row.name}`)
 }
 
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除装箱单 "${row.name}" 吗？`,
+      `确定要删除箱包 "${row.name}" 吗？`,
       '确认删除',
       {
         confirmButtonText: '确定',
@@ -195,11 +202,19 @@ const handleDelete = async (row) => {
       }
     )
     
-    // TODO: 调用API删除装箱单
-    ElMessage.success('删除成功')
-    loadContainers()
-  } catch {
-    // 用户取消删除
+    const response = await containersApi.deleteContainer(row.id)
+    
+    if (response.success) {
+      ElMessage.success('删除成功')
+      loadContainers()
+    } else {
+      ElMessage.error(response.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除箱包失败')
+      console.error('Delete container error:', error)
+    }
   }
 }
 
@@ -210,6 +225,11 @@ const handleSizeChange = (size) => {
 
 const handleCurrentChange = (page) => {
   pagination.currentPage = page
+  loadContainers()
+}
+
+const handleCreateSuccess = (data) => {
+  ElMessage.success('装箱单创建成功')
   loadContainers()
 }
 

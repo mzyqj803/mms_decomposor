@@ -203,32 +203,6 @@ public class ContractsServiceImpl implements ContractsService {
         });
     }
     
-    @Override
-    @Transactional
-    public Map<String, Object> uploadContainer(Long contractId, MultipartFile file) {
-        String lockKey = "contract:upload:" + contractId;
-        
-        return distributedLockService.executeWithLock(lockKey, 10, 30, TimeUnit.SECONDS, () -> {
-            Contracts contract = getContractById(contractId);
-            
-            if (contract.getStatus() != Contracts.ContractStatus.DRAFT) {
-                throw new RuntimeException("只有草稿状态的合同才能上传装箱单");
-            }
-            
-            // TODO: 实现装箱单上传和解析逻辑
-            // 1. 验证文件格式
-            // 2. 解析Excel文件内容
-            // 3. 保存装箱单数据到数据库
-            
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("message", "装箱单上传成功");
-            result.put("fileName", file.getOriginalFilename());
-            
-            log.info("为合同 {} 上传装箱单成功: {}", contract.getContractNo(), file.getOriginalFilename());
-            return result;
-        });
-    }
     
     @Override
     @Transactional

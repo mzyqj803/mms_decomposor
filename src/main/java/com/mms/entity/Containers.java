@@ -2,6 +2,8 @@ package com.mms.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import jakarta.persistence.*;
 import java.util.List;
@@ -33,6 +35,7 @@ public class Containers extends BaseEntity {
     
     // 一对多关系：装箱组件
     @OneToMany(mappedBy = "container", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<ContainerComponents> components;
     
     // 一对多关系：装箱组件汇总

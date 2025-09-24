@@ -3,7 +3,11 @@ package com.mms.service.impl;
 import com.mms.entity.Containers;
 import com.mms.entity.ContainerComponents;
 import com.mms.entity.Contracts;
+import com.mms.entity.ContractParameters;
 import com.mms.repository.ContainersRepository;
+import com.mms.repository.ContainerComponentsRepository;
+import com.mms.repository.ContainersComponentsSummaryRepository;
+import com.mms.repository.ContainerComponentsBreakdownRepository;
 import com.mms.repository.ContractsRepository;
 import com.mms.service.ContainerUploadService;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +20,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +30,40 @@ import java.util.List;
 public class ContainerUploadServiceImpl implements ContainerUploadService {
     
     private final ContainersRepository containersRepository;
+    private final ContainerComponentsRepository containerComponentsRepository;
+    private final ContainersComponentsSummaryRepository containersComponentsSummaryRepository;
+    private final ContainerComponentsBreakdownRepository containerComponentsBreakdownRepository;
     private final ContractsRepository contractsRepository;
+    
+    @Override
+    public Map<String, Object> previewExcelFile(MultipartFile file) {
+        try {
+            // 解析Excel文件
+            List<ContainerData> containerDataList = parseExcelFile(file);
+            
+            // 构建预览数据
+            Map<String, Object> previewData = new HashMap<>();
+            previewData.put("success", true);
+            previewData.put("containerCount", containerDataList.size());
+            previewData.put("containers", containerDataList);
+            
+            // 计算总组件数量
+            int totalComponents = containerDataList.stream()
+                .mapToInt(data -> data.getComponents().size())
+                .sum();
+            previewData.put("totalComponents", totalComponents);
+            
+            log.info("Excel文件预览成功: 装箱单数量={}, 组件总数={}", containerDataList.size(), totalComponents);
+            return previewData;
+            
+        } catch (Exception e) {
+            log.error("预览Excel文件失败", e);
+            Map<String, Object> errorData = new HashMap<>();
+            errorData.put("success", false);
+            errorData.put("message", "预览失败: " + e.getMessage());
+            return errorData;
+        }
+    }
     
     @Override
     @Transactional
@@ -34,18 +73,18 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
             Contracts contract = contractsRepository.findById(contractId)
                 .orElseThrow(() -> new RuntimeException("合同不存在"));
             
+            // 清除当前合同下的所有相关数据
+            clearContractData(contractId);
+            
             // 解析Excel文件
             List<ContainerData> containerDataList = parseExcelFile(file);
             
-            // 创建装箱单
-            List<Containers> containers = new ArrayList<>();
+            // 创建装箱单（createContainer方法内部已经处理保存逻辑）
+            List<Containers> savedContainers = new ArrayList<>();
             for (ContainerData data : containerDataList) {
                 Containers container = createContainer(contract, data);
-                containers.add(container);
+                savedContainers.add(container);
             }
-            
-            // 保存到数据库
-            List<Containers> savedContainers = containersRepository.saveAll(containers);
             
             log.info("成功解析并创建装箱单: 合同ID={}, 装箱单数量={}", contractId, savedContainers.size());
             return savedContainers;
@@ -58,16 +97,77 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
     
     @Override
     public List<Containers> findSimilarContainers(Long contractId) {
-        // TODO: 根据合同参数查找类似的装箱单
-        // 这里可以根据合同参数（如电梯类型、载重等）查找相似的装箱单
-        return new ArrayList<>();
+        try {
+            // 获取当前合同
+            Contracts currentContract = contractsRepository.findById(contractId)
+                .orElseThrow(() -> new RuntimeException("合同不存在"));
+            
+            // 获取当前合同的参数
+            List<ContractParameters> currentParams = currentContract.getParameters();
+            if (currentParams == null || currentParams.isEmpty()) {
+                log.info("合同ID={}没有参数，无法查找相似装箱单", contractId);
+                return new ArrayList<>();
+            }
+            
+            // 查找所有其他合同的装箱单
+            List<Containers> allContainers = containersRepository.findAll();
+            List<Containers> similarContainers = new ArrayList<>();
+            
+            for (Containers container : allContainers) {
+                // 跳过当前合同的装箱单
+                if (container.getContract().getId().equals(contractId)) {
+                    continue;
+                }
+                
+                // 检查合同参数相似度
+                if (isSimilarContract(container.getContract(), currentContract)) {
+                    similarContainers.add(container);
+                }
+            }
+            
+            log.info("为合同ID={}找到{}个相似装箱单", contractId, similarContainers.size());
+            return similarContainers;
+            
+        } catch (Exception e) {
+            log.error("查找相似装箱单失败: 合同ID={}", contractId, e);
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * 判断两个合同是否相似
+     */
+    private boolean isSimilarContract(Contracts contract1, Contracts contract2) {
+        List<ContractParameters> params1 = contract1.getParameters();
+        List<ContractParameters> params2 = contract2.getParameters();
+        
+        if (params1 == null || params2 == null) {
+            return false;
+        }
+        
+        // 计算参数匹配度
+        int matchCount = 0;
+        int totalParams = Math.max(params1.size(), params2.size());
+        
+        for (ContractParameters param1 : params1) {
+            for (ContractParameters param2 : params2) {
+                if (param1.getParamName().equals(param2.getParamName()) &&
+                    param1.getParamValue().equals(param2.getParamValue())) {
+                    matchCount++;
+                    break;
+                }
+            }
+        }
+        
+        // 如果匹配度超过50%，认为是相似合同
+        return totalParams > 0 && (double) matchCount / totalParams >= 0.5;
     }
     
     @Override
     @Transactional
     public List<Containers> cloneContainers(Long sourceContractId, Long targetContractId) {
-        // 获取源合同和目标合同
-        Contracts sourceContract = contractsRepository.findById(sourceContractId)
+        // 验证源合同和目标合同存在
+        contractsRepository.findById(sourceContractId)
             .orElseThrow(() -> new RuntimeException("源合同不存在"));
         Contracts targetContract = contractsRepository.findById(targetContractId)
             .orElseThrow(() -> new RuntimeException("目标合同不存在"));
@@ -75,15 +175,12 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         // 获取源合同的装箱单
         List<Containers> sourceContainers = containersRepository.findByContractId(sourceContractId);
         
-        // 克隆装箱单
-        List<Containers> clonedContainers = new ArrayList<>();
+        // 克隆装箱单（cloneContainer方法内部已经处理保存逻辑）
+        List<Containers> savedContainers = new ArrayList<>();
         for (Containers sourceContainer : sourceContainers) {
             Containers clonedContainer = cloneContainer(sourceContainer, targetContract);
-            clonedContainers.add(clonedContainer);
+            savedContainers.add(clonedContainer);
         }
-        
-        // 保存克隆的装箱单
-        List<Containers> savedContainers = containersRepository.saveAll(clonedContainers);
         
         log.info("成功克隆装箱单: 源合同ID={}, 目标合同ID={}, 装箱单数量={}", 
             sourceContractId, targetContractId, savedContainers.size());
@@ -146,14 +243,14 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
                         containerDataList.add(containerData);
                     }
                     
-                    // 箱号直接从B列（索引1）提取
+                    // 箱包号从B列（索引1）提取
                     String containerNoValue = getCellStringValue(row.getCell(1));
                     if (containerNoValue != null && !containerNoValue.trim().isEmpty()) {
                         currentContainerNo = containerNoValue.trim();
                     }
                     
-                    // ContainerType从D列（索引3）提取
-                    String containerTypeValue = getCellStringValue(row.getCell(3));
+                    // 箱包名称从C列（索引2）提取
+                    String containerTypeValue = getCellStringValue(row.getCell(2));
                     if (containerTypeValue != null && !containerTypeValue.trim().isEmpty()) {
                         currentContainerType = containerTypeValue.trim();
                     }
@@ -287,11 +384,14 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         container.setName(data.getContainerType()); // 使用容器类型作为名称
         container.setComments(data.getProjectName()); // 将项目名称存储到备注中
         
-        // 创建组件
+        // 先保存装箱单
+        Containers savedContainer = containersRepository.save(container);
+        
+        // 创建并保存组件
         List<ContainerComponents> components = new ArrayList<>();
         for (ComponentData compData : data.getComponents()) {
             ContainerComponents component = new ContainerComponents();
-            component.setContainer(container);
+            component.setContainer(savedContainer);
             component.setComponentNo(compData.getComponentNo());
             component.setComponentName(compData.getComponentName());
             component.setUnitCode(compData.getUnitCode());
@@ -299,9 +399,12 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
             component.setComments(compData.getComments());
             components.add(component);
         }
-        container.setComponents(components);
         
-        return container;
+        // 保存所有组件
+        List<ContainerComponents> savedComponents = containerComponentsRepository.saveAll(components);
+        savedContainer.setComponents(savedComponents);
+        
+        return savedContainer;
     }
     
     private Containers cloneContainer(Containers sourceContainer, Contracts targetContract) {
@@ -313,12 +416,15 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         clonedContainer.setContainerWeight(sourceContainer.getContainerWeight());
         clonedContainer.setComments(sourceContainer.getComments());
         
+        // 先保存装箱单
+        Containers savedClonedContainer = containersRepository.save(clonedContainer);
+        
         // 克隆组件
         List<ContainerComponents> clonedComponents = new ArrayList<>();
         if (sourceContainer.getComponents() != null) {
             for (ContainerComponents sourceComponent : sourceContainer.getComponents()) {
                 ContainerComponents clonedComponent = new ContainerComponents();
-                clonedComponent.setContainer(clonedContainer);
+                clonedComponent.setContainer(savedClonedContainer);
                 clonedComponent.setComponentNo(sourceComponent.getComponentNo());
                 clonedComponent.setComponentName(sourceComponent.getComponentName());
                 clonedComponent.setUnitCode(sourceComponent.getUnitCode());
@@ -327,9 +433,12 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
                 clonedComponents.add(clonedComponent);
             }
         }
-        clonedContainer.setComponents(clonedComponents);
         
-        return clonedContainer;
+        // 保存所有克隆的组件
+        List<ContainerComponents> savedComponents = containerComponentsRepository.saveAll(clonedComponents);
+        savedClonedContainer.setComponents(savedComponents);
+        
+        return savedClonedContainer;
     }
     
     // 内部数据类
@@ -341,6 +450,7 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         private List<ComponentData> components;
         
         // Getters and Setters
+        
         public String getContractNo() { return contractNo; }
         public void setContractNo(String contractNo) { this.contractNo = contractNo; }
         
@@ -366,6 +476,7 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         private String comments;
         
         // Getters and Setters
+        
         public String getSequenceNo() { return sequenceNo; }
         public void setSequenceNo(String sequenceNo) { this.sequenceNo = sequenceNo; }
         
@@ -383,5 +494,53 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         
         public String getComments() { return comments; }
         public void setComments(String comments) { this.comments = comments; }
+    }
+    
+    @Override
+    public List<Containers> getContainersByContract(Long contractId) {
+        return containersRepository.findByContractId(contractId);
+    }
+    
+    @Override
+    @Transactional
+    public void deleteContainer(Long containerId) {
+        Containers container = containersRepository.findById(containerId)
+            .orElseThrow(() -> new RuntimeException("装箱单不存在"));
+        
+        containersRepository.delete(container);
+        log.info("删除装箱单: ID={}, 装箱单号={}", containerId, container.getContainerNo());
+    }
+    
+    /**
+     * 清除指定合同下的所有相关数据
+     * 包括：containers, container_components, containers_components_summary, container_components_breakdown
+     */
+    @Transactional
+    public void clearContractData(Long contractId) {
+        try {
+            log.info("开始清除合同ID={}的相关数据", contractId);
+            
+            // 删除分解记录
+            containerComponentsBreakdownRepository.deleteByContractId(contractId);
+            log.info("已删除合同ID={}的分解记录", contractId);
+            
+            // 删除汇总记录
+            containersComponentsSummaryRepository.deleteByContractId(contractId);
+            log.info("已删除合同ID={}的汇总记录", contractId);
+            
+            // 删除组件记录
+            containerComponentsRepository.deleteByContractId(contractId);
+            log.info("已删除合同ID={}的组件记录", contractId);
+            
+            // 删除装箱单记录
+            containersRepository.deleteByContractId(contractId);
+            log.info("已删除合同ID={}的装箱单记录", contractId);
+            
+            log.info("成功清除合同ID={}的所有相关数据", contractId);
+            
+        } catch (Exception e) {
+            log.error("清除合同ID={}的数据失败", contractId, e);
+            throw new RuntimeException("清除合同数据失败: " + e.getMessage());
+        }
     }
 }

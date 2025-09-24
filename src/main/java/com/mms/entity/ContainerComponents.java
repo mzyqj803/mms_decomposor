@@ -2,6 +2,7 @@ package com.mms.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import jakarta.persistence.*;
 import java.util.List;
@@ -14,6 +15,7 @@ public class ContainerComponents extends BaseEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "container_id", nullable = false)
+    @JsonBackReference
     private Containers container;
     
     @Column(name = "component_no", length = 255)

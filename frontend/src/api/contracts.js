@@ -36,16 +36,6 @@ export const contractsApi = {
     return api.post(`/contracts/${id}/containers/generate`)
   },
   
-  // 上传装箱单
-  uploadContainer(id, file) {
-    const formData = new FormData()
-    formData.append('file', file)
-    return api.post(`/contracts/${id}/containers/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-  },
   
   // 开始工艺分解
   startBreakdown(id) {

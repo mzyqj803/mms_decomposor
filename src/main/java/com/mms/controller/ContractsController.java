@@ -90,17 +90,6 @@ public class ContractsController {
         return ResponseEntity.ok(result);
     }
     
-    /**
-     * 上传装箱单
-     */
-    @PostMapping("/{id}/containers/upload")
-    public ResponseEntity<Map<String, Object>> uploadContainer(
-            @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) {
-        
-        Map<String, Object> result = contractsService.uploadContainer(id, file);
-        return ResponseEntity.ok(result);
-    }
     
     /**
      * 开始工艺分解

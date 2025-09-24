@@ -112,4 +112,52 @@ public class ContainerUploadController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+    
+    /**
+     * 获取合同的装箱单列表
+     */
+    @GetMapping
+    public ResponseEntity<Map<String, Object>> getContainersByContract(@PathVariable Long contractId) {
+        try {
+            List<Containers> containers = containerUploadService.getContainersByContract(contractId);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", containers);
+            response.put("count", containers.size());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "获取装箱单列表失败: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    /**
+     * 删除装箱单
+     */
+    @DeleteMapping("/{containerId}")
+    public ResponseEntity<Map<String, Object>> deleteContainer(
+            @PathVariable Long contractId,
+            @PathVariable Long containerId) {
+        
+        try {
+            containerUploadService.deleteContainer(containerId);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "装箱单删除成功");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "删除失败: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
 }
