@@ -9,6 +9,7 @@ import com.mms.repository.ContainerComponentsRepository;
 import com.mms.repository.ContainersComponentsSummaryRepository;
 import com.mms.repository.ContainerComponentsBreakdownRepository;
 import com.mms.repository.ContractsRepository;
+import com.mms.service.CacheService;
 import com.mms.service.ContainerUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
     private final ContainersComponentsSummaryRepository containersComponentsSummaryRepository;
     private final ContainerComponentsBreakdownRepository containerComponentsBreakdownRepository;
     private final ContractsRepository contractsRepository;
+    private final CacheService cacheService;
     
     @Override
     public Map<String, Object> previewExcelFile(MultipartFile file) {
@@ -87,6 +89,10 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
             }
             
             log.info("成功解析并创建装箱单: 合同ID={}, 装箱单数量={}", contractId, savedContainers.size());
+            
+            // 清除相关合同的缓存
+            clearContractContainersCache(contractId);
+            
             return savedContainers;
             
         } catch (Exception e) {
@@ -184,6 +190,10 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         
         log.info("成功克隆装箱单: 源合同ID={}, 目标合同ID={}, 装箱单数量={}", 
             sourceContractId, targetContractId, savedContainers.size());
+        
+        // 清除目标合同的缓存（因为目标合同的数据发生了变化）
+        clearContractContainersCache(targetContractId);
+        
         return savedContainers;
     }
     /**
@@ -541,6 +551,19 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         } catch (Exception e) {
             log.error("清除合同ID={}的数据失败", contractId, e);
             throw new RuntimeException("清除合同数据失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 清除指定合同的箱包缓存
+     */
+    private void clearContractContainersCache(Long contractId) {
+        try {
+            String cacheKey = "contract:containers:" + contractId;
+            cacheService.delete(cacheKey);
+            log.info("已清除合同ID={}的箱包缓存", contractId);
+        } catch (Exception e) {
+            log.warn("清除合同ID={}的箱包缓存失败: {}", contractId, e.getMessage());
         }
     }
 }

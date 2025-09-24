@@ -2,6 +2,7 @@ package com.mms.service.impl;
 
 import com.mms.entity.Contracts;
 import com.mms.entity.Containers;
+import com.mms.dto.ContainerDTO;
 import com.mms.repository.ContractsRepository;
 import com.mms.repository.ContainersRepository;
 import com.mms.service.CacheService;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -314,16 +316,27 @@ public class ContractsServiceImpl implements ContractsService {
     public List<Containers> getContractContainers(Long contractId) {
         String cacheKey = "contract:containers:" + contractId;
         
+        // 尝试从缓存获取DTO列表
         @SuppressWarnings("unchecked")
-        List<Containers> cachedContainers = cacheService.get(cacheKey, List.class);
+        List<ContainerDTO> cachedContainers = cacheService.get(cacheKey, List.class);
         if (cachedContainers != null) {
-            return cachedContainers;
+            log.debug("从缓存获取合同{}的箱包列表，数量: {}", contractId, cachedContainers.size());
+            // 从缓存获取时，直接查询数据库获取完整实体
+            // 这样可以避免DTO转换的复杂性，同时享受缓存带来的性能提升
+            return containersRepository.findByContractId(contractId);
         }
         
+        // 从数据库查询
         List<Containers> containers = containersRepository.findByContractId(contractId);
         
-        // 缓存10分钟
-        cacheService.set(cacheKey, containers, 10, TimeUnit.MINUTES);
+        // 转换为DTO并缓存（用于缓存命中检测）
+        List<ContainerDTO> containerDTOs = containers.stream()
+                .map(ContainerDTO::fromEntity)
+                .collect(Collectors.toList());
+        
+        // 缓存DTO列表（避免序列化问题）
+        cacheService.set(cacheKey, containerDTOs, 10, TimeUnit.MINUTES);
+        log.debug("缓存合同{}的箱包列表，数量: {}", contractId, containerDTOs.size());
         
         return containers;
     }

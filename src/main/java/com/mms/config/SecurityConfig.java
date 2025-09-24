@@ -34,6 +34,7 @@ public class SecurityConfig {
                 .requestMatchers("/contracts/**").permitAll()
                 .requestMatchers("/containers/**").permitAll()
                 .requestMatchers("/components/**").permitAll()
+                .requestMatchers("/breakdown/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/error/**").permitAll()
                 .anyRequest().authenticated()

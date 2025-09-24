@@ -18,7 +18,7 @@ public interface ContainersRepository extends JpaRepository<Containers, Long> {
     /**
      * 根据合同ID查找所有装箱单
      */
-    @Query("SELECT c FROM Containers c WHERE c.contract.id = :contractId")
+    @Query("SELECT c FROM Containers c LEFT JOIN FETCH c.contract WHERE c.contract.id = :contractId")
     List<Containers> findByContractId(@Param("contractId") Long contractId);
     
     /**

@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/contracts/{contractId}/containers")
+@RequestMapping("/contracts/{contractId}/containers/upload")
 @RequiredArgsConstructor
 public class ContainerUploadController {
     
