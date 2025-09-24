@@ -147,14 +147,6 @@ const loadContainers = async () => {
     containers.value = response.content || []
     pagination.total = response.totalElements || 0
     
-    // 处理数据，添加合同号和项目名称等信息
-    containers.value = containers.value.map(container => ({
-      ...container,
-      contractNo: container.contract?.contractNo || '',
-      projectName: container.contract?.projectName || '',
-      componentCount: container.components?.length || 0
-    }))
-    
   } catch (error) {
     ElMessage.error('加载装箱单列表失败')
     console.error('Load containers error:', error)

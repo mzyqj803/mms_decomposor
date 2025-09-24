@@ -2,6 +2,7 @@ package com.mms.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.*;
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.List;
 @Entity
 @Table(name = "components")
 @EqualsAndHashCode(callSuper = true)
+@JsonIgnoreProperties({"specs", "processes", "children", "parents"})
 public class Components extends BaseEntity {
     
     @Column(name = "category_code", length = 50)

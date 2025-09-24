@@ -33,6 +33,13 @@ public interface BreakdownService {
     Map<String, Object> getContractBreakdownSummary(Long contractId);
     
     /**
+     * 删除箱包的分解结果
+     * @param containerId 箱包ID
+     * @return 删除结果
+     */
+    Map<String, Object> deleteContainerBreakdown(Long containerId);
+    
+    /**
      * 导出工艺分解表
      * @param contractId 合同ID
      * @param format 导出格式 (excel, pdf)

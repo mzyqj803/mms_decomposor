@@ -1,6 +1,7 @@
 package com.mms.controller;
 
 import com.mms.entity.Containers;
+import com.mms.dto.ContainerDTO;
 import com.mms.service.ContainersService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -9,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/containers")
@@ -21,14 +23,18 @@ public class ContainersController {
      * 获取装箱单列表（支持搜索和分页）
      */
     @GetMapping
-    public ResponseEntity<Page<Containers>> getContainers(
+    public ResponseEntity<Page<ContainerDTO>> getContainers(
             @RequestParam(required = false) String containerNo,
             @RequestParam(required = false) String contractNo,
             @RequestParam(required = false) String projectName,
             Pageable pageable) {
         
         Page<Containers> containers = containersService.getContainers(containerNo, contractNo, projectName, pageable);
-        return ResponseEntity.ok(containers);
+        
+        // 转换为DTO
+        Page<ContainerDTO> containerDTOs = containers.map(ContainerDTO::fromEntity);
+        
+        return ResponseEntity.ok(containerDTOs);
     }
     
     /**

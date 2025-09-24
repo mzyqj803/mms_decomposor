@@ -2,6 +2,7 @@ package com.mms.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
 
@@ -13,6 +14,7 @@ public class ComponentsSpec extends BaseEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "component_id", nullable = false)
+    @JsonIgnore
     private Components component;
     
     @Column(name = "spec_code", length = 50)

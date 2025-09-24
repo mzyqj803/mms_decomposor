@@ -82,6 +82,22 @@ public class BreakdownController {
     }
     
     /**
+     * 删除箱包的分解结果
+     */
+    @DeleteMapping("/container/{containerId}")
+    public ResponseEntity<Map<String, Object>> deleteContainerBreakdown(@PathVariable Long containerId) {
+        try {
+            log.info("删除箱包分解结果: containerId={}", containerId);
+            Map<String, Object> result = breakdownService.deleteContainerBreakdown(containerId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("删除箱包分解结果失败: containerId={}, error={}", containerId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "删除分解结果失败: " + e.getMessage()));
+        }
+    }
+    
+    /**
      * 导出工艺分解表
      */
     @GetMapping("/contract/{contractId}/export")

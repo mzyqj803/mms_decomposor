@@ -29,8 +29,8 @@ public class BreakdownServiceImpl implements BreakdownService {
         Containers container = containersRepository.findById(containerId)
             .orElseThrow(() -> new RuntimeException("箱包不存在"));
         
-        // 清除之前的分解记录
-        breakdownRepository.deleteByContractId(container.getContract().getId());
+        // 清除该箱包之前的分解记录
+        breakdownRepository.deleteByContainerId(containerId);
         
         List<ContainerComponents> containerComponents = containerComponentsRepository.findByContainerId(containerId);
         List<Map<String, Object>> breakdownResults = new ArrayList<>();
@@ -56,6 +56,7 @@ public class BreakdownServiceImpl implements BreakdownService {
         response.put("problemComponents", problemComponents);
         response.put("totalComponents", containerComponents.size());
         response.put("processedComponents", breakdownResults.size());
+        response.put("breakdownTime", new Date().toString());
         
         log.info("箱包工艺分解完成: containerId={}, 处理部件数={}, 问题部件数={}", 
             containerId, breakdownResults.size(), problemComponents.size());
@@ -67,6 +68,9 @@ public class BreakdownServiceImpl implements BreakdownService {
     @Transactional
     public Map<String, Object> breakdownContract(Long contractId) {
         log.info("开始对合同进行工艺分解: contractId={}", contractId);
+        
+        // 清除该合同的所有分解记录
+        breakdownRepository.deleteByContractId(contractId);
         
         List<Containers> containers = containersRepository.findByContractId(contractId);
         List<Map<String, Object>> containerResults = new ArrayList<>();
@@ -96,6 +100,7 @@ public class BreakdownServiceImpl implements BreakdownService {
         response.put("totalContainers", containers.size());
         response.put("totalProcessedComponents", totalProcessedComponents);
         response.put("allProblemComponents", allProblemComponents);
+        response.put("breakdownTime", new Date().toString());
         
         log.info("合同工艺分解完成: contractId={}, 箱包数={}, 处理部件数={}", 
             contractId, containers.size(), totalProcessedComponents);
@@ -110,11 +115,80 @@ public class BreakdownServiceImpl implements BreakdownService {
         
         List<ContainerComponentsBreakdown> breakdowns = breakdownRepository.findByContainerId(containerId);
         
+        // 检查是否有分解结果
+        if (breakdowns.isEmpty()) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("containerId", containerId);
+            response.put("containerNo", container.getContainerNo());
+            response.put("containerName", container.getName());
+            response.put("hasBreakdown", false);
+            response.put("message", "该箱包尚未进行工艺分解");
+            return response;
+        }
+        
+        // 重新构建分解结果，按父部件分组
+        Map<String, Map<String, Object>> groupedResults = new HashMap<>();
+        List<String> problemComponents = new ArrayList<>();
+        
+        for (ContainerComponentsBreakdown breakdown : breakdowns) {
+            ContainerComponents containerComponent = breakdown.getContainerComponent();
+            Components subComponent = breakdown.getSubComponent();
+            
+            String parentComponentNo = containerComponent.getComponentNo();
+            
+            if (!groupedResults.containsKey(parentComponentNo)) {
+                Map<String, Object> parentResult = new HashMap<>();
+                parentResult.put("componentNo", containerComponent.getComponentNo());
+                parentResult.put("componentName", containerComponent.getComponentName());
+                parentResult.put("quantity", containerComponent.getQuantity());
+                parentResult.put("procurementFlag", false); // 默认值，需要从components表获取
+                parentResult.put("subComponents", new ArrayList<Map<String, Object>>());
+                groupedResults.put(parentComponentNo, parentResult);
+            }
+            
+            // 添加子部件信息
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> subComponents = (List<Map<String, Object>>) groupedResults.get(parentComponentNo).get("subComponents");
+            
+            Map<String, Object> subComponentInfo = new HashMap<>();
+            subComponentInfo.put("componentCode", subComponent.getComponentCode());
+            subComponentInfo.put("name", subComponent.getName());
+            subComponentInfo.put("procurementFlag", subComponent.getProcurementFlag());
+            subComponentInfo.put("commonPartsFlag", subComponent.getCommonPartsFlag());
+            subComponents.add(subComponentInfo);
+        }
+        
         Map<String, Object> response = new HashMap<>();
         response.put("containerId", containerId);
         response.put("containerNo", container.getContainerNo());
         response.put("containerName", container.getName());
-        response.put("breakdowns", breakdowns);
+        response.put("hasBreakdown", true);
+        response.put("breakdownResults", groupedResults.values());
+        response.put("problemComponents", problemComponents);
+        response.put("processedComponents", groupedResults.size());
+        
+        return response;
+    }
+    
+    @Override
+    @Transactional
+    public Map<String, Object> deleteContainerBreakdown(Long containerId) {
+        log.info("删除箱包分解结果: containerId={}", containerId);
+        
+        Containers container = containersRepository.findById(containerId)
+            .orElseThrow(() -> new RuntimeException("箱包不存在"));
+        
+        // 删除该箱包的所有分解记录
+        int deletedCount = breakdownRepository.deleteByContainerId(containerId);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("containerId", containerId);
+        response.put("containerNo", container.getContainerNo());
+        response.put("containerName", container.getName());
+        response.put("deletedCount", deletedCount);
+        response.put("message", "分解结果已删除");
+        
+        log.info("箱包分解结果删除完成: containerId={}, 删除记录数={}", containerId, deletedCount);
         
         return response;
     }
@@ -147,7 +221,7 @@ public class BreakdownServiceImpl implements BreakdownService {
         
         if (componentOpt.isPresent()) {
             Components component = componentOpt.get();
-            result.put("component", component);
+            // 不直接序列化实体对象，只保存需要的字段
             result.put("procurementFlag", component.getProcurementFlag());
             result.put("commonPartsFlag", component.getCommonPartsFlag());
             

@@ -31,12 +31,19 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/contracts/**").permitAll()
+                .requestMatchers("/api/contracts/**").permitAll()
                 .requestMatchers("/containers/**").permitAll()
+                .requestMatchers("/api/containers/**").permitAll()
                 .requestMatchers("/components/**").permitAll()
+                .requestMatchers("/api/components/**").permitAll()
                 .requestMatchers("/breakdown/**").permitAll()
+                .requestMatchers("/api/breakdown/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/api/actuator/**").permitAll()
                 .requestMatchers("/error/**").permitAll()
+                .requestMatchers("/api/error/**").permitAll()
                 .anyRequest().authenticated()
             );
         

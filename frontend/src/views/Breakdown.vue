@@ -79,10 +79,24 @@
           <el-table-column prop="name" label="箱包名称" />
           <el-table-column prop="containerSize" label="尺寸" width="120" />
           <el-table-column prop="containerWeight" label="重量" width="120" />
-          <el-table-column label="操作" width="200">
+          <el-table-column label="操作" width="280">
             <template #default="{ row }">
-              <el-button type="success" size="small" @click="breakdownContainer(row)">
-                工艺分解
+              <el-button 
+                type="success" 
+                size="small" 
+                @click="breakdownContainer(row)"
+                :loading="breakdownLoading && breakdownLoadingContainerId === row.id"
+              >
+                {{ containerBreakdownStatus[row.id] ? '重新分解' : '工艺分解' }}
+              </el-button>
+              <el-button 
+                v-if="containerBreakdownStatus[row.id]" 
+                type="primary" 
+                size="small" 
+                @click="viewBreakdownTable(row)"
+                style="margin-left: 8px"
+              >
+                查看分解表
               </el-button>
             </template>
           </el-table-column>
@@ -188,6 +202,56 @@
         </el-collapse>
       </el-card>
     </div>
+
+    <!-- 分解表弹窗 -->
+    <el-dialog
+      v-model="showBreakdownDialog"
+      title="分解表详情"
+      width="80%"
+      :close-on-click-modal="false"
+    >
+      <div v-if="currentBreakdownData">
+        <div class="breakdown-dialog-header">
+          <h3>{{ currentBreakdownData.containerNo }} - {{ currentBreakdownData.containerName }}</h3>
+          <p><strong>处理部件数：</strong>{{ currentBreakdownData.processedComponents }}</p>
+          <p v-if="currentBreakdownData.problemComponents && currentBreakdownData.problemComponents.length > 0">
+            <strong>问题部件：</strong>
+            <span style="color: #f56c6c">{{ currentBreakdownData.problemComponents.join(', ') }}</span>
+          </p>
+        </div>
+        
+        <el-table :data="currentBreakdownData.breakdownResults" stripe style="margin-top: 20px">
+          <el-table-column prop="componentNo" label="部件编号" width="150" />
+          <el-table-column prop="componentName" label="部件名称" min-width="200" />
+          <el-table-column prop="quantity" label="数量" width="80" />
+          <el-table-column prop="procurementFlag" label="是否外购" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.procurementFlag ? 'success' : 'info'">
+                {{ row.procurementFlag ? '是' : '否' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="子部件" min-width="300">
+            <template #default="{ row }">
+              <div v-if="row.subComponents && row.subComponents.length > 0">
+                <div v-for="sub in row.subComponents" :key="sub.componentCode" class="sub-component-item">
+                  <el-tag size="small" style="margin-right: 5px; margin-bottom: 5px">
+                    {{ sub.componentCode }}
+                  </el-tag>
+                  <span style="font-size: 12px; color: #606266">{{ sub.name }}</span>
+                </div>
+              </div>
+              <span v-else style="color: #909399">无子部件</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      
+      <template #footer>
+        <el-button @click="showBreakdownDialog = false">关闭</el-button>
+        <el-button type="primary" @click="exportSingleBreakdown">导出此箱包分解表</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -208,11 +272,15 @@ const selectedContract = ref(null)
 const containers = ref([])
 const breakdownResults = ref(null)
 const activeCollapse = ref([])
+const containerBreakdownStatus = ref({}) // 跟踪每个箱包的分解状态
+const showBreakdownDialog = ref(false) // 控制分解表弹窗显示
+const currentBreakdownData = ref(null) // 当前要显示的分解数据
 
 // 加载状态
 const searchLoading = ref(false)
 const breakdownLoading = ref(false)
 const exportLoading = ref(false)
+const breakdownLoadingContainerId = ref(null) // 当前正在分解的箱包ID
 
 // 搜索合同
 const searchContracts = async () => {
@@ -246,6 +314,9 @@ const selectContract = async (contract) => {
     
     if (containers.value.length === 0) {
       ElMessage.info('该合同暂无箱包数据')
+    } else {
+      // 检查每个箱包的分解状态
+      await checkContainerBreakdownStatus()
     }
   } catch (error) {
     console.error('获取箱包列表失败:', error)
@@ -253,11 +324,38 @@ const selectContract = async (contract) => {
   }
 }
 
+// 检查箱包分解状态
+const checkContainerBreakdownStatus = async () => {
+  for (const container of containers.value) {
+    try {
+      const response = await breakdownApi.getContainerBreakdown(container.id)
+      if (response.hasBreakdown) {
+        containerBreakdownStatus.value[container.id] = {
+          containerId: container.id,
+          containerNo: container.containerNo,
+          containerName: container.name,
+          processedComponents: response.processedComponents,
+          problemComponents: response.problemComponents,
+          breakdownResults: response.breakdownResults,
+          breakdownTime: response.breakdownTime || '未知时间'
+        }
+      }
+    } catch (error) {
+      console.error(`检查箱包 ${container.containerNo} 分解状态失败:`, error)
+    }
+  }
+}
+
 // 分解单个箱包
 const breakdownContainer = async (container) => {
   try {
+    const isReBreakdown = containerBreakdownStatus.value[container.id]
+    const confirmMessage = isReBreakdown 
+      ? `确定要重新对箱包 ${container.containerNo} 进行工艺分解吗？这将删除上次的分解结果。`
+      : `确定要对箱包 ${container.containerNo} 进行工艺分解吗？`
+    
     await ElMessageBox.confirm(
-      `确定要对箱包 ${container.containerNo} 进行工艺分解吗？`,
+      confirmMessage,
       '确认分解',
       {
         confirmButtonText: '确定',
@@ -267,9 +365,33 @@ const breakdownContainer = async (container) => {
     )
     
     breakdownLoading.value = true
+    breakdownLoadingContainerId.value = container.id
+    
+    // 如果是重新分解，先删除之前的分解结果
+    if (isReBreakdown) {
+      try {
+        await breakdownApi.deleteContainerBreakdown(container.id)
+        ElMessage.info('已删除之前的分解结果')
+      } catch (error) {
+        console.error('删除分解结果失败:', error)
+        ElMessage.warning('删除分解结果失败，但将继续进行分解')
+      }
+    }
+    
     const response = await breakdownApi.breakdownContainer(container.id)
     
     ElMessage.success('箱包工艺分解完成')
+    
+    // 更新分解状态
+    containerBreakdownStatus.value[container.id] = {
+      containerId: container.id,
+      containerNo: container.containerNo,
+      containerName: container.name,
+      processedComponents: response.processedComponents,
+      problemComponents: response.problemComponents,
+      breakdownResults: response.breakdownResults,
+      breakdownTime: response.breakdownTime || new Date().toLocaleString()
+    }
     
     // 显示分解结果
     breakdownResults.value = {
@@ -286,6 +408,7 @@ const breakdownContainer = async (container) => {
     }
   } finally {
     breakdownLoading.value = false
+    breakdownLoadingContainerId.value = null
   }
 }
 
@@ -315,6 +438,74 @@ const breakdownAllContainers = async () => {
     }
   } finally {
     breakdownLoading.value = false
+  }
+}
+
+// 查看分解表
+const viewBreakdownTable = (container) => {
+  const breakdownData = containerBreakdownStatus.value[container.id]
+  if (breakdownData) {
+    currentBreakdownData.value = breakdownData
+    showBreakdownDialog.value = true
+  } else {
+    ElMessage.warning('该箱包尚未进行工艺分解')
+  }
+}
+
+// 导出单个箱包分解表
+const exportSingleBreakdown = async () => {
+  if (!currentBreakdownData.value) {
+    ElMessage.warning('没有可导出的分解数据')
+    return
+  }
+  
+  try {
+    // 创建Excel数据
+    const breakdownData = currentBreakdownData.value
+    const wsData = [
+      ['箱包号', '部件编号', '部件名称', '数量', '是否外购', '子部件编号', '子部件名称']
+    ]
+    
+    breakdownData.breakdownResults.forEach(result => {
+      if (result.subComponents && result.subComponents.length > 0) {
+        result.subComponents.forEach(sub => {
+          wsData.push([
+            breakdownData.containerNo,
+            result.componentNo,
+            result.componentName,
+            result.quantity,
+            result.procurementFlag ? '是' : '否',
+            sub.componentCode,
+            sub.name
+          ])
+        })
+      } else {
+        wsData.push([
+          breakdownData.containerNo,
+          result.componentNo,
+          result.componentName,
+          result.quantity,
+          result.procurementFlag ? '是' : '否',
+          '',
+          '无子部件'
+        ])
+      }
+    })
+    
+    // 创建CSV内容
+    const csvContent = wsData.map(row => row.join(',')).join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `分解表_${breakdownData.containerNo}.csv`
+    link.click()
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败')
   }
 }
 
@@ -403,6 +594,35 @@ const getStatusText = (status) => {
     font-weight: 600;
     color: #303133;
     margin-bottom: 20px;
+  }
+}
+
+.breakdown-dialog-header {
+  background: #f5f7fa;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  
+  h3 {
+    margin: 0 0 10px 0;
+    color: #303133;
+    font-size: 18px;
+  }
+  
+  p {
+    margin: 5px 0;
+    color: #606266;
+    font-size: 14px;
+  }
+}
+
+.sub-component-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  
+  &:last-child {
+    margin-bottom: 0;
   }
 }
 </style>

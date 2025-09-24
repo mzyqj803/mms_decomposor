@@ -2,8 +2,7 @@ package com.mms.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
 import java.util.List;
@@ -16,6 +15,7 @@ public class Containers extends BaseEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contract_id", nullable = false)
+    @JsonIgnore
     private Contracts contract;
     
     @Column(name = "container_no", length = 255)
@@ -35,10 +35,11 @@ public class Containers extends BaseEntity {
     
     // 一对多关系：装箱组件
     @OneToMany(mappedBy = "container", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference
+    @JsonIgnore
     private List<ContainerComponents> components;
     
     // 一对多关系：装箱组件汇总
     @OneToMany(mappedBy = "container", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<ContainersComponentsSummary> summaries;
 }

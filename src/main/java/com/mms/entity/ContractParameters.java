@@ -2,7 +2,7 @@ package com.mms.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
 
@@ -21,6 +21,6 @@ public class ContractParameters extends BaseEntity {
     // 多对一关系：合同参数属于一个合同
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contract_id")
-    @JsonBackReference
+    @JsonIgnore
     private Contracts contract;
 }

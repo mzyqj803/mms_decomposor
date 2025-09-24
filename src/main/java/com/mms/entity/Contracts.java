@@ -2,7 +2,6 @@ package com.mms.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
@@ -37,11 +36,12 @@ public class Contracts extends BaseEntity {
     
     // 一对多关系：合同参数
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference
+    @JsonIgnore
     private List<ContractParameters> parameters;
     
     // 一对多关系：装箱组件汇总
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<ContainersComponentsSummary> summaries;
     
     public static class ContractStatus {

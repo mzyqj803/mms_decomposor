@@ -32,4 +32,12 @@ public interface ContainerComponentsBreakdownRepository extends JpaRepository<Co
     @Transactional
     @Query("DELETE FROM ContainerComponentsBreakdown ccb WHERE ccb.container.contract.id = :contractId")
     void deleteByContractId(@Param("contractId") Long contractId);
+    
+    /**
+     * 根据箱包ID删除所有分解记录
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM ContainerComponentsBreakdown ccb WHERE ccb.container.id = :containerId")
+    int deleteByContainerId(@Param("containerId") Long containerId);
 }

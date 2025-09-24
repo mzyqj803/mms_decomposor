@@ -4,7 +4,7 @@ export const breakdownApi = {
   // 对单个箱包进行工艺分解
   breakdownContainer(containerId) {
     return request({
-      url: `/api/breakdown/container/${containerId}`,
+      url: `/breakdown/container/${containerId}`,
       method: 'post'
     })
   },
@@ -12,7 +12,7 @@ export const breakdownApi = {
   // 对合同的所有箱包进行工艺分解
   breakdownContract(contractId) {
     return request({
-      url: `/api/breakdown/contract/${contractId}`,
+      url: `/breakdown/contract/${contractId}`,
       method: 'post'
     })
   },
@@ -20,15 +20,23 @@ export const breakdownApi = {
   // 获取箱包的工艺分解结果
   getContainerBreakdown(containerId) {
     return request({
-      url: `/api/breakdown/container/${containerId}`,
+      url: `/breakdown/container/${containerId}`,
       method: 'get'
+    })
+  },
+
+  // 删除箱包的分解结果
+  deleteContainerBreakdown(containerId) {
+    return request({
+      url: `/breakdown/container/${containerId}`,
+      method: 'delete'
     })
   },
 
   // 获取合同的工艺分解汇总结果
   getContractBreakdownSummary(contractId) {
     return request({
-      url: `/api/breakdown/contract/${contractId}/summary`,
+      url: `/breakdown/contract/${contractId}/summary`,
       method: 'get'
     })
   },
@@ -36,7 +44,7 @@ export const breakdownApi = {
   // 导出工艺分解表
   exportBreakdown(contractId, format = 'excel') {
     return request({
-      url: `/api/breakdown/contract/${contractId}/export`,
+      url: `/breakdown/contract/${contractId}/export`,
       method: 'get',
       params: { format },
       responseType: 'blob'
