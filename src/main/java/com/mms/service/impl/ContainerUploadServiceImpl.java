@@ -146,10 +146,10 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
                         containerDataList.add(containerData);
                     }
                     
-                    // 解析箱号信息
-                    String[] containerParts = firstCellValue.split(" ");
-                    if (containerParts.length >= 2) {
-                        currentContainerNo = containerParts[1]; // BNO-1-1
+                    // 箱号直接从B列（索引1）提取
+                    String containerNoValue = getCellStringValue(row.getCell(1));
+                    if (containerNoValue != null && !containerNoValue.trim().isEmpty()) {
+                        currentContainerNo = containerNoValue.trim();
                     }
                     
                     // ContainerType从D列（索引3）提取
