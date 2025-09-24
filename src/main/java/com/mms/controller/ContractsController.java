@@ -1,15 +1,16 @@
 package com.mms.controller;
 
 import com.mms.entity.Contracts;
+import com.mms.entity.Containers;
 import com.mms.service.ContractsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -129,5 +130,14 @@ public class ContractsController {
                 .header("Content-Type", contentType)
                 .header("Content-Disposition", "attachment; filename=" + filename)
                 .body(data);
+    }
+    
+    /**
+     * 获取合同的所有箱包列表
+     */
+    @GetMapping("/{id}/containers")
+    public ResponseEntity<List<Containers>> getContractContainers(@PathVariable Long id) {
+        List<Containers> containers = contractsService.getContractContainers(id);
+        return ResponseEntity.ok(containers);
     }
 }

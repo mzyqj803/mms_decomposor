@@ -1,7 +1,9 @@
 package com.mms.service.impl;
 
 import com.mms.entity.Contracts;
+import com.mms.entity.Containers;
 import com.mms.repository.ContractsRepository;
+import com.mms.repository.ContainersRepository;
 import com.mms.service.CacheService;
 import com.mms.service.ContractParametersService;
 import com.mms.service.ContractsService;
@@ -12,9 +14,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -24,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 public class ContractsServiceImpl implements ContractsService {
     
     private final ContractsRepository contractsRepository;
+    private final ContainersRepository containersRepository;
     private final CacheService cacheService;
     private final DistributedLockService distributedLockService;
     private final ContractParametersService contractParametersService;
@@ -305,5 +308,23 @@ public class ContractsServiceImpl implements ContractsService {
     private void clearContractsCache() {
         // 清除所有合同列表相关的缓存
         // 这里可以使用Redis的keys命令或者维护一个缓存键的集合
+    }
+    
+    @Override
+    public List<Containers> getContractContainers(Long contractId) {
+        String cacheKey = "contract:containers:" + contractId;
+        
+        @SuppressWarnings("unchecked")
+        List<Containers> cachedContainers = cacheService.get(cacheKey, List.class);
+        if (cachedContainers != null) {
+            return cachedContainers;
+        }
+        
+        List<Containers> containers = containersRepository.findByContractId(contractId);
+        
+        // 缓存10分钟
+        cacheService.set(cacheKey, containers, 10, TimeUnit.MINUTES);
+        
+        return containers;
     }
 }

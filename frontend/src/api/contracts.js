@@ -27,8 +27,14 @@ export const contractsApi = {
   },
   
   // 搜索合同
-  searchContracts(keyword) {
-    return api.get('/contracts/search', { params: { keyword } })
+  searchContracts(keyword, page = 0, size = 10) {
+    return api.get('/contracts/search', { 
+      params: { 
+        keyword,
+        page,
+        size
+      } 
+    })
   },
   
   // 生成装箱单
@@ -81,5 +87,10 @@ export const contractsApi = {
     return api.post(`/contracts/${id}/containers/clone`, null, {
       params: { sourceContractId }
     })
+  },
+  
+  // 获取合同的所有箱包列表
+  getContractContainers(id) {
+    return api.get(`/contracts/${id}/containers`)
   }
 }

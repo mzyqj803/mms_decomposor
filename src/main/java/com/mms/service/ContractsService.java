@@ -3,7 +3,6 @@ package com.mms.service;
 import com.mms.entity.Contracts;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -59,4 +58,9 @@ public interface ContractsService {
      * 导出分解表
      */
     byte[] exportBreakdown(Long contractId, String format);
+    
+    /**
+     * 获取合同的所有箱包列表
+     */
+    java.util.List<com.mms.entity.Containers> getContractContainers(Long contractId);
 }
