@@ -4,6 +4,17 @@
 
 MMS制造管理系统是一个专为电梯制造行业设计的工艺分解和管理系统。系统能够根据合同和装箱单数据，自动生成工艺分解表，并提供完整的生产计划、成本估算和投标报价功能。
 
+## 📋 项目状态
+
+- ✅ **项目架构**: 前后端分离架构已完成
+- ✅ **后端框架**: Spring Boot 3.2.0 + Java 21
+- ✅ **前端框架**: Vue 3 + Element Plus
+- ✅ **数据库设计**: 完整的10表数据模型
+- ✅ **容器化部署**: Docker + Docker Compose
+- ✅ **系统设计文档**: 完整的技术文档
+- 🔄 **业务功能**: 核心业务逻辑开发中
+- 🔄 **工艺分解算法**: 自动分解算法实现中
+
 ## 技术栈
 
 ### 后端
@@ -114,9 +125,11 @@ mms_decomposor/
 │   ├── package.json
 │   └── vite.config.js
 ├── docs/                               # 文档
+│   ├── 系统设计文档.md                  # 系统设计文档
 │   ├── Spec.md                         # 需求规格说明
 │   ├── Data Modeling.md                # 数据模型设计
-│   └── DBER.drawio                     # 数据库ER图
+│   ├── DBER.drawio                     # 数据库ER图
+│   └── data_init/                      # 数据初始化脚本
 └── pom.xml                            # Maven配置
 ```
 
@@ -205,10 +218,25 @@ npm run dev
 - `DELETE /api/contracts/{id}` - 删除合同
 - `GET /api/contracts/search` - 搜索合同
 - `POST /api/contracts/{id}/containers/generate` - 生成装箱单
-- `POST /api/contracts/{id}/containers/upload` - 上传装箱单
 - `POST /api/contracts/{id}/breakdown/start` - 开始工艺分解
 - `GET /api/contracts/{id}/breakdown/result` - 获取分解结果
 - `GET /api/contracts/{id}/breakdown/export` - 导出分解表
+
+### 零部件管理接口
+- `GET /api/components` - 获取零部件列表
+- `GET /api/components/{id}` - 获取零部件详情
+- `POST /api/components` - 创建零部件
+- `PUT /api/components/{id}` - 更新零部件
+- `DELETE /api/components/{id}` - 删除零部件
+
+### 装箱单管理接口
+- `GET /api/containers` - 获取装箱单列表
+- `GET /api/containers/{id}` - 获取装箱单详情
+- `POST /api/containers` - 创建装箱单
+- `PUT /api/containers/{id}` - 更新装箱单
+- `DELETE /api/containers/{id}` - 删除装箱单
+- `POST /api/containers/upload` - 上传装箱单文件
+- `GET /api/containers/{id}/preview` - 预览装箱单
 
 ## 部署说明
 
@@ -269,6 +297,18 @@ volumes:
   mariadb_data:
 ```
 
+## 📚 文档说明
+
+### 技术文档
+- **[系统设计文档](docs/系统设计文档.md)** - 完整的技术架构和设计说明
+- **[数据模型设计](docs/Data%20Modeling.md)** - 数据库设计和实体关系
+- **[需求规格说明](docs/Spec.md)** - 业务需求和功能规格
+- **[升级指南](UPGRADE_GUIDE.md)** - Spring Boot 3.2.0 升级说明
+
+### 部署文档
+- **[Windows环境配置](WINDOWS_SETUP.md)** - Windows环境详细配置说明
+- **Docker Compose配置** - 容器化部署配置
+
 ## 开发指南
 
 ### 代码规范
@@ -297,7 +337,7 @@ npm run test
 
 本项目采用MIT许可证。详情请参阅 [LICENSE](LICENSE) 文件。
 
-## 升级说明
+## 🚀 升级说明
 
 项目已升级到 **Spring Boot 3.2.0 + Java 21**！
 
@@ -310,6 +350,26 @@ npm run test
 - ✅ Spring Security 配置更新
 - ✅ 所有依赖版本更新
 
-## 联系方式
+## 🎯 项目特色
+
+### 技术特色
+- **现代化技术栈**: Spring Boot 3.2.0 + Vue 3 + Java 21
+- **容器化部署**: Docker + Docker Compose 一键部署
+- **分布式架构**: Redis缓存 + 分布式锁支持
+- **安全机制**: Spring Security + JWT认证
+- **文档完善**: 完整的技术文档和API文档
+
+### 业务特色
+- **专业领域**: 专为电梯制造行业设计
+- **自动化处理**: 自动工艺分解算法
+- **完整流程**: 从合同到生产计划的全流程管理
+- **数据可视化**: ECharts图表展示
+- **文件处理**: Excel/PDF导入导出
+
+## 📞 联系方式
 
 如有问题或建议，请联系开发团队。
+
+---
+
+**MMS制造管理系统** - 让电梯制造更智能、更高效！
