@@ -46,10 +46,10 @@
                 clearable
                 style="width: 150px;"
               >
-                <el-option label="草稿" value="DRAFT" />
-                <el-option label="处理中" value="PROCESSING" />
-                <el-option label="已完成" value="COMPLETED" />
-                <el-option label="错误" value="ERROR" />
+                <el-option label="草稿" :value="0" />
+                <el-option label="处理中" :value="1" />
+                <el-option label="已完成" :value="2" />
+                <el-option label="错误" :value="3" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -269,34 +269,34 @@ const dialogTitle = computed(() => {
 
 const getStatusType = (status) => {
   const statusMap = {
-    'DRAFT': '',
-    'PROCESSING': 'warning',
-    'COMPLETED': 'success',
-    'ERROR': 'danger'
+    0: 'info',      // DRAFT
+    1: 'warning',   // PROCESSING
+    2: 'success',   // COMPLETED
+    3: 'danger'     // ERROR
   }
-  return statusMap[status] || ''
+  return statusMap[status] || 'info'
 }
 
 const getStatusText = (status) => {
   const statusMap = {
-    'DRAFT': '草稿',
-    'PROCESSING': '处理中',
-    'COMPLETED': '已完成',
-    'ERROR': '错误'
+    0: '草稿',       // DRAFT
+    1: '处理中',     // PROCESSING
+    2: '已完成',     // COMPLETED
+    3: '错误'        // ERROR
   }
-  return statusMap[status] || status
+  return statusMap[status] || '未知'
 }
 
 const getActionText = (row) => {
   if (!row.containers || row.containers.length === 0) {
     return '生成装箱单'
-  } else if (row.status === 'DRAFT') {
+  } else if (row.status === 0) {  // DRAFT
     return '开始分解'
-  } else if (row.status === 'PROCESSING') {
+  } else if (row.status === 1) {  // PROCESSING
     return '查看进度'
-  } else if (row.status === 'COMPLETED') {
+  } else if (row.status === 2) {  // COMPLETED
     return '查看结果'
-  } else if (row.status === 'ERROR') {
+  } else if (row.status === 3) {  // ERROR
     return '查看错误'
   }
   return '操作'
@@ -404,7 +404,7 @@ const handleAction = async (row) => {
     } catch (error) {
       ElMessage.error('生成装箱单失败')
     }
-  } else if (row.status === 'DRAFT') {
+  } else if (row.status === 0) {  // DRAFT
     // 开始工艺分解
     try {
       await contractsApi.startBreakdown(row.id)

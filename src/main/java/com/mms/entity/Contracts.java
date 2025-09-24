@@ -26,10 +26,9 @@ public class Contracts extends BaseEntity {
     @Column(name = "quantity")
     private Integer quantity;
     
-    // 合同状态：DRAFT, PROCESSING, COMPLETED, ERROR
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 20)
-    private ContractStatus status = ContractStatus.DRAFT;
+    // 合同状态：0=DRAFT, 1=PROCESSING, 2=COMPLETED, 3=ERROR
+    @Column(name = "status")
+    private Integer status = 0;
     
     // 一对多关系：装箱单
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -45,10 +44,32 @@ public class Contracts extends BaseEntity {
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ContainersComponentsSummary> summaries;
     
-    public enum ContractStatus {
-        DRAFT,          // 草稿
-        PROCESSING,     // 处理中
-        COMPLETED,      // 完成
-        ERROR           // 错误
+    public static class ContractStatus {
+        public static final int DRAFT = 0;          // 草稿
+        public static final int PROCESSING = 1;      // 处理中
+        public static final int COMPLETED = 2;       // 完成
+        public static final int ERROR = 3;           // 错误
+        
+        public static String getStatusText(Integer status) {
+            if (status == null) return "未知";
+            switch (status) {
+                case DRAFT: return "草稿";
+                case PROCESSING: return "处理中";
+                case COMPLETED: return "完成";
+                case ERROR: return "错误";
+                default: return "未知";
+            }
+        }
+        
+        public static String getStatusType(Integer status) {
+            if (status == null) return "info";
+            switch (status) {
+                case DRAFT: return "info";
+                case PROCESSING: return "warning";
+                case COMPLETED: return "success";
+                case ERROR: return "danger";
+                default: return "info";
+            }
+        }
     }
 }

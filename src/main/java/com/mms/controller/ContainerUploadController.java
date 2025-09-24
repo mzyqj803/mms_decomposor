@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/contracts/{contractId}/containers/upload")
+@RequestMapping("/contracts/{contractId}/containers")
 @RequiredArgsConstructor
 public class ContainerUploadController {
     
@@ -113,28 +113,6 @@ public class ContainerUploadController {
         }
     }
     
-    /**
-     * 获取合同的装箱单列表
-     */
-    @GetMapping
-    public ResponseEntity<Map<String, Object>> getContainersByContract(@PathVariable Long contractId) {
-        try {
-            List<Containers> containers = containerUploadService.getContainersByContract(contractId);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("data", containers);
-            response.put("count", containers.size());
-            
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "获取装箱单列表失败: " + e.getMessage());
-            return ResponseEntity.badRequest().body(response);
-        }
-    }
     
     /**
      * 删除装箱单

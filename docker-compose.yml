@@ -17,6 +17,7 @@ services:
       - mariadb_data:/var/lib/mysql
       - ./src/main/resources/sql/data_init/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./src/main/resources/sql/data_init/data_init.sql:/docker-entrypoint-initdb.d/02-data_init.sql
+      - ./src/main/resources/sql/data_init/cleanup_duplicate_components_with_fk.sql:/docker-entrypoint-initdb.d/03-cleanup_duplicates.sql
     networks:
       - mms-network
 
