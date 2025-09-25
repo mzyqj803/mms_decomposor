@@ -33,6 +33,9 @@ public class Containers extends BaseEntity {
     @Column(name = "comments", columnDefinition = "TEXT")
     private String comments;
     
+    @Column(name = "status")
+    private Integer status = 0; // 0: 未分解, 1: 已分解
+    
     // 一对多关系：装箱组件
     @OneToMany(mappedBy = "container", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore

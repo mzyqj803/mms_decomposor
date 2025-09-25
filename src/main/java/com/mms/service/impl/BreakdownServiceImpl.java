@@ -32,6 +32,10 @@ public class BreakdownServiceImpl implements BreakdownService {
         // 清除该箱包之前的分解记录
         breakdownRepository.deleteByContainerId(containerId);
         
+        // 更新container状态为未分解
+        container.setStatus(0);
+        containersRepository.save(container);
+        
         List<ContainerComponents> containerComponents = containerComponentsRepository.findByContainerId(containerId);
         List<Map<String, Object>> breakdownResults = new ArrayList<>();
         List<String> problemComponents = new ArrayList<>();
@@ -57,6 +61,10 @@ public class BreakdownServiceImpl implements BreakdownService {
         response.put("totalComponents", containerComponents.size());
         response.put("processedComponents", breakdownResults.size());
         response.put("breakdownTime", new Date().toString());
+        
+        // 更新container状态为已分解
+        container.setStatus(1);
+        containersRepository.save(container);
         
         log.info("箱包工艺分解完成: containerId={}, 处理部件数={}, 问题部件数={}", 
             containerId, breakdownResults.size(), problemComponents.size());
@@ -218,6 +226,10 @@ public class BreakdownServiceImpl implements BreakdownService {
         
         // 删除该箱包的所有分解记录
         int deletedCount = breakdownRepository.deleteByContainerId(containerId);
+        
+        // 更新container状态为未分解
+        container.setStatus(0);
+        containersRepository.save(container);
         
         Map<String, Object> response = new HashMap<>();
         response.put("containerId", containerId);

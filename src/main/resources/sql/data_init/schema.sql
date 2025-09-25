@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS containers (
   Container_Size     VARCHAR(50),
   Container_Weight   VARCHAR(50),
   Comments            TEXT,
+  status             INT DEFAULT 0,
   Entry_TS             TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
   Entry_User             VARCHAR(50) DEFAULT 'SYS_USER',
   Last_Update_TS          TIMESTAMP DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP(),

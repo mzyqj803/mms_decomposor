@@ -79,9 +79,10 @@
           <el-table-column prop="name" label="箱包名称" />
           <el-table-column prop="containerSize" label="尺寸" width="120" />
           <el-table-column prop="containerWeight" label="重量" width="120" />
-          <el-table-column label="操作" width="280">
+          <el-table-column label="操作" width="320">
             <template #default="{ row }">
               <el-button 
+                v-if="row.status === 0"
                 type="success" 
                 size="small" 
                 @click="breakdownContainer(row)"
@@ -89,14 +90,32 @@
               >
                 工艺分解
               </el-button>
-              <el-button 
-                type="primary" 
-                size="small" 
-                @click="viewBreakdownTable(row)"
-                style="margin-left: 8px"
-              >
-                查看分解表
-              </el-button>
+              <template v-else>
+                <el-button 
+                  type="warning" 
+                  size="small" 
+                  @click="breakdownContainer(row)"
+                  :loading="breakdownLoading && breakdownLoadingContainerId === row.id"
+                >
+                  重新分解
+                </el-button>
+                <el-button 
+                  type="primary" 
+                  size="small" 
+                  @click="viewBreakdownTable(row)"
+                  style="margin-left: 8px"
+                >
+                  查看分解表
+                </el-button>
+                <el-button 
+                  type="danger" 
+                  size="small" 
+                  @click="deleteBreakdown(row)"
+                  style="margin-left: 8px"
+                >
+                  删除分解表
+                </el-button>
+              </template>
             </template>
           </el-table-column>
         </el-table>
@@ -328,6 +347,9 @@ const breakdownContainer = async (container) => {
     
     ElMessage.success('箱包工艺分解完成')
     
+    // 更新container状态
+    container.status = 1
+    
     // 显示分解结果
     breakdownResults.value = {
       containerResults: [response],
@@ -399,6 +421,33 @@ const viewBreakdownTable = async (container) => {
   } catch (error) {
     console.error('获取分解表失败:', error)
     ElMessage.error('获取分解表失败')
+  }
+}
+
+// 删除分解表
+const deleteBreakdown = async (container) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除箱包 ${container.containerNo} 的分解表吗？此操作不可恢复。`,
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    const response = await breakdownApi.deleteContainerBreakdown(container.id)
+    ElMessage.success('分解表已删除')
+    
+    // 更新container状态
+    container.status = 0
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除分解表失败:', error)
+      ElMessage.error('删除分解表失败')
+    }
   }
 }
 
