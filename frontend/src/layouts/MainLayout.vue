@@ -30,6 +30,11 @@
           <template #title>零部件管理</template>
         </el-menu-item>
         
+        <el-menu-item index="/fastener-warehouse">
+          <el-icon><Tools /></el-icon>
+          <template #title>紧固件库管理</template>
+        </el-menu-item>
+        
         <el-menu-item index="/containers">
           <el-icon><Collection /></el-icon>
           <template #title>装箱单管理</template>

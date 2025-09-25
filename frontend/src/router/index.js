@@ -38,6 +38,12 @@ const routes = [
         meta: { title: '零部件管理' }
       },
       {
+        path: '/fastener-warehouse',
+        name: 'FastenerWarehouse',
+        component: () => import('@/views/FastenerWarehouse.vue'),
+        meta: { title: '紧固件库管理' }
+      },
+      {
         path: '/containers',
         name: 'Containers',
         component: () => import('@/views/Containers.vue'),

@@ -185,4 +185,27 @@ CREATE TABLE IF NOT EXISTS container_components_breakdown_problems (
   CONSTRAINT fk_ccbp_container FOREIGN KEY (Container_ID) REFERENCES containers(ID)
 ) ENGINE=InnoDB;
 
+-- 12) Fastener_Warehouse (紧固件库表)
+CREATE TABLE IF NOT EXISTS fastener_warehouse (
+  ID                         INT PRIMARY KEY AUTO_INCREMENT,
+  Specs                      VARCHAR(511),
+  Product_Code               VARCHAR(255),
+  ERP_Code                   VARCHAR(255),
+  Name                       VARCHAR(511),
+  Level                      VARCHAR(50),
+  Material                   VARCHAR(255),
+  Surface_Treatment          VARCHAR(255),
+  Remark                     TEXT,
+  Default_Flag               TINYINT(1) DEFAULT 0,
+  Entry_TS                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+  Entry_User                 VARCHAR(50) DEFAULT 'SYS_USER',
+  Last_Update_TS             TIMESTAMP DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP(),
+  Last_Update_User           VARCHAR(50) DEFAULT 'SYS_USER',
+  INDEX idx_fw_product_code (Product_Code),
+  INDEX idx_fw_erp_code (ERP_Code),
+  INDEX idx_fw_default_flag (Default_Flag),
+  INDEX idx_fw_material (Material),
+  INDEX idx_fw_level (Level)
+) ENGINE=InnoDB;
+
 SET FOREIGN_KEY_CHECKS = 1;

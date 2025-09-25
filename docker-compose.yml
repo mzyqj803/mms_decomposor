@@ -37,6 +37,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      tags:
+        - mms-backend:latest
+    image: mms-backend:latest
     container_name: mms-backend
     ports:
       - "8080:8080"
@@ -57,6 +60,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      tags:
+        - mms-frontend:latest
+    image: mms-frontend:latest
     container_name: mms-frontend
     ports:
       - "9000:80"
