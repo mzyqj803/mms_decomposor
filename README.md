@@ -12,8 +12,15 @@ MMS制造管理系统是一个专为电梯制造行业设计的工艺分解和�
 - ✅ **数据库设计**: 完整的10表数据模型
 - ✅ **容器化部署**: Docker + Docker Compose
 - ✅ **系统设计文档**: 完整的技术文档
-- 🔄 **业务功能**: 核心业务逻辑开发中
-- 🔄 **工艺分解算法**: 自动分解算法实现中
+- ✅ **基础CRUD功能**: 合同、零部件、装箱单管理
+- ✅ **用户认证系统**: JWT认证框架
+- ✅ **缓存系统**: Redis + Redisson分布式锁
+- ✅ **文件上传**: Excel装箱单上传和预览
+- ✅ **工艺分解算法**: 核心分解逻辑已实现
+- 🔄 **生产计划**: 基于工艺工序的生产计划生成
+- 🔄 **成本估算**: 零部件和工艺成本计算
+- 🔄 **投标报价**: 利润率设置和价格生成
+- 🔄 **历史记录**: 数据变更追踪
 
 ## 技术栈
 
@@ -41,46 +48,73 @@ MMS制造管理系统是一个专为电梯制造行业设计的工艺分解和�
 
 ## 主要功能
 
-### 1. 合同管理
-- 合同信息录入和管理
-- 装箱单生成和上传
-- 合同状态跟踪
+### 1. 合同管理 ✅
+- ✅ 合同信息录入和管理
+- ✅ 合同参数配置
+- ✅ 装箱单自动生成
+- ✅ 合同状态跟踪
+- ✅ 合同搜索和分页
 
-### 2. 零部件管理
-- 零部件基础信息维护
-- 零部件规格参数管理
-- 零部件关系配置
+### 2. 零部件管理 ✅
+- ✅ 零部件基础信息维护
+- ✅ 零部件规格参数管理
+- ✅ 零部件关系配置
+- ✅ 零部件搜索和分页
+- ✅ 零部件缓存优化
 
-### 3. 工艺分解
-- 自动工艺分解算法
-- 合并分解表生成
-- 分解结果审核和修正
+### 3. 装箱单管理 ✅
+- ✅ Excel装箱单文件上传
+- ✅ 装箱单内容预览
+- ✅ 装箱单CRUD操作
+- ✅ 装箱单搜索和分页
+- ✅ 装箱单与合同关联
 
-### 4. 生产计划
-- 基于工艺工序的最优制造流程
-- 生产计划表生成
-- 计划调整和优化
+### 4. 工艺分解 ✅
+- ✅ 自动工艺分解算法
+- ✅ 单箱包分解功能
+- ✅ 合同级批量分解
+- ✅ 分解结果查看
+- ✅ 分解表导出功能
 
-### 5. 成本估算
-- 零部件成本计算
-- 工艺成本分析
-- 总成本估算
+### 5. 用户认证 ✅
+- ✅ JWT Token认证
+- ✅ 用户登录/登出
+- ✅ 用户信息管理
+- ✅ 安全配置
 
-### 6. 投标报价
-- 利润率设置
-- 营销成本配置
-- 代理商佣金计算
-- 投标价格生成
+### 6. 缓存系统 ✅
+- ✅ Redis分布式缓存
+- ✅ Redisson分布式锁
+- ✅ 缓存测试接口
+- ✅ 性能优化
 
-### 7. 历史记录
-- 合同参数修订记录
-- 装箱单修改记录
-- 合并分解表修改记录
+### 7. 生产计划 🔄
+- 🔄 基于工艺工序的最优制造流程
+- 🔄 生产计划表生成
+- 🔄 计划调整和优化
 
-### 8. 数据接口
-- RESTful API
-- 外部系统集成
-- 回调更新机制
+### 8. 成本估算 🔄
+- 🔄 零部件成本计算
+- 🔄 工艺成本分析
+- 🔄 总成本估算
+
+### 9. 投标报价 🔄
+- 🔄 利润率设置
+- 🔄 营销成本配置
+- 🔄 代理商佣金计算
+- 🔄 投标价格生成
+
+### 10. 历史记录 🔄
+- 🔄 合同参数修订记录
+- 🔄 装箱单修改记录
+- 🔄 合并分解表修改记录
+
+### 11. 数据接口 ✅
+- ✅ RESTful API
+- ✅ 分页和搜索支持
+- ✅ 数据验证
+- 🔄 外部系统集成
+- 🔄 回调更新机制
 
 ## 项目结构
 
@@ -157,8 +191,8 @@ start.bat
 ```
 
 3. **访问应用**
-- 前端: http://localhost:3000
-- 后端API: http://localhost:8080/api
+- 前端: http://localhost:9000
+- 后端API: http://localhost:8080
 
 ### Linux/Mac环境启动
 
@@ -175,8 +209,8 @@ chmod +x start.sh
 ```
 
 3. **访问应用**
-- 前端: http://localhost:3000
-- 后端API: http://localhost:8080/api
+- 前端: http://localhost:9000
+- 后端API: http://localhost:8080
 
 ### 开发环境启动
 
@@ -206,96 +240,102 @@ npm run dev
 ## API文档
 
 ### 认证接口
-- `POST /api/auth/login` - 用户登录
-- `POST /api/auth/logout` - 用户登出
-- `GET /api/auth/me` - 获取当前用户信息
+- `POST /auth/login` - 用户登录
+- `POST /auth/logout` - 用户登出
+- `GET /auth/me` - 获取当前用户信息
 
 ### 合同管理接口
-- `GET /api/contracts` - 获取合同列表
-- `GET /api/contracts/{id}` - 获取合同详情
-- `POST /api/contracts` - 创建合同
-- `PUT /api/contracts/{id}` - 更新合同
-- `DELETE /api/contracts/{id}` - 删除合同
-- `GET /api/contracts/search` - 搜索合同
-- `POST /api/contracts/{id}/containers/generate` - 生成装箱单
-- `POST /api/contracts/{id}/breakdown/start` - 开始工艺分解
-- `GET /api/contracts/{id}/breakdown/result` - 获取分解结果
-- `GET /api/contracts/{id}/breakdown/export` - 导出分解表
+- `GET /contracts` - 获取合同列表（支持分页和搜索）
+- `GET /contracts/{id}` - 获取合同详情
+- `POST /contracts` - 创建合同
+- `PUT /contracts/{id}` - 更新合同
+- `DELETE /contracts/{id}` - 删除合同
 
 ### 零部件管理接口
-- `GET /api/components` - 获取零部件列表
-- `GET /api/components/{id}` - 获取零部件详情
-- `POST /api/components` - 创建零部件
-- `PUT /api/components/{id}` - 更新零部件
-- `DELETE /api/components/{id}` - 删除零部件
+- `GET /components` - 获取零部件列表（支持分页和搜索）
+- `GET /components/{id}` - 获取零部件详情
+- `POST /components` - 创建零部件
+- `PUT /components/{id}` - 更新零部件
+- `DELETE /components/{id}` - 删除零部件
 
 ### 装箱单管理接口
-- `GET /api/containers` - 获取装箱单列表
-- `GET /api/containers/{id}` - 获取装箱单详情
-- `POST /api/containers` - 创建装箱单
-- `PUT /api/containers/{id}` - 更新装箱单
-- `DELETE /api/containers/{id}` - 删除装箱单
-- `POST /api/containers/upload` - 上传装箱单文件
-- `GET /api/containers/{id}/preview` - 预览装箱单
+- `GET /containers` - 获取装箱单列表（支持分页和搜索）
+- `GET /containers/{id}` - 获取装箱单详情
+- `POST /containers` - 创建装箱单
+- `PUT /containers/{id}` - 更新装箱单
+- `DELETE /containers/{id}` - 删除装箱单
+- `POST /containers/upload` - 上传Excel装箱单文件
+- `GET /containers/{id}/preview` - 预览装箱单内容
+
+### 工艺分解接口
+- `POST /breakdown/container/{containerId}` - 对单个箱包进行工艺分解
+- `POST /breakdown/contract/{contractId}` - 对合同的所有箱包进行工艺分解
+- `GET /breakdown/result/{contractId}` - 获取工艺分解结果
+- `GET /breakdown/export/{contractId}` - 导出工艺分解表
+
+### 合同参数管理接口
+- `GET /contract-parameters` - 获取合同参数列表
+- `POST /contract-parameters` - 创建合同参数
+- `PUT /contract-parameters/{id}` - 更新合同参数
+- `DELETE /contract-parameters/{id}` - 删除合同参数
+
+### 缓存测试接口
+- `GET /cache/test` - 缓存功能测试
+- `POST /cache/test` - 缓存写入测试
 
 ## 部署说明
 
 ### Docker部署
 
-1. **构建后端镜像**
+#### 一键部署（推荐）
 ```bash
-mvn clean package
-docker build -t mms-backend .
+# 使用Docker Compose一键启动所有服务
+docker-compose up -d
 ```
 
-2. **构建前端镜像**
+#### 服务配置
+当前Docker Compose配置包含以下服务：
+
+- **MariaDB数据库** (端口: 3307)
+  - 数据库: `mms_db`
+  - 用户: `mms_user`
+  - 密码: `mms_password`
+  - 自动初始化数据库结构和数据
+
+- **Redis缓存** (端口: 6379)
+  - 用于分布式缓存和锁
+  - 数据持久化支持
+
+- **后端服务** (端口: 8080)
+  - Spring Boot应用
+  - 自动连接数据库和Redis
+  - 支持热重载开发模式
+
+- **前端服务** (端口: 9000)
+  - Vue 3应用
+  - Nginx反向代理
+  - 静态资源优化
+
+#### 手动构建部署
 ```bash
+# 1. 构建后端镜像
+mvn clean package
+docker build -f Dockerfile.backend -t mms-backend .
+
+# 2. 构建前端镜像
 cd frontend
 npm run build
 docker build -t mms-frontend .
+
+# 3. 启动服务
+docker-compose up -d
 ```
 
-3. **使用Docker Compose**
-```yaml
-version: '3.8'
-services:
-  mariadb:
-    image: mariadb:10.3
-    environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: mms_db
-    ports:
-      - "3306:3306"
-    volumes:
-      - mariadb_data:/var/lib/mysql
-      - ./src/main/resources/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
-
-  redis:
-    image: redis:6.0-alpine
-    ports:
-      - "6379:6379"
-
-  backend:
-    image: mms-backend
-    ports:
-      - "8080:8080"
-    depends_on:
-      - mariadb
-      - redis
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/mms_db
-      SPRING_REDIS_HOST: redis
-
-  frontend:
-    image: mms-frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-
-volumes:
-  mariadb_data:
-```
+#### 访问地址
+- 前端应用: http://localhost:9000
+- 后端API: http://localhost:8080
+- 数据库: localhost:3307
+- Redis: localhost:6379
 
 ## 📚 文档说明
 
@@ -333,10 +373,6 @@ npm run test
 4. 推送到分支
 5. 创建Pull Request
 
-## 许可证
-
-本项目采用MIT许可证。详情请参阅 [LICENSE](LICENSE) 文件。
-
 ## 🚀 升级说明
 
 项目已升级到 **Spring Boot 3.2.0 + Java 21**！
@@ -365,6 +401,80 @@ npm run test
 - **完整流程**: 从合同到生产计划的全流程管理
 - **数据可视化**: ECharts图表展示
 - **文件处理**: Excel/PDF导入导出
+
+## 🚀 开发状态与下一步计划
+
+### 当前开发状态
+项目已完成核心架构和基础功能开发，主要模块包括：
+
+#### 已完成功能 ✅
+- **基础架构**: Spring Boot 3.2.0 + Vue 3 前后端分离架构
+- **数据管理**: 完整的CRUD操作，支持分页和搜索
+- **用户认证**: JWT Token认证系统
+- **文件处理**: Excel装箱单上传和预览
+- **工艺分解**: 核心分解算法实现
+- **缓存系统**: Redis分布式缓存和锁
+- **容器化**: Docker + Docker Compose部署
+
+#### 开发中功能 🔄
+- **生产计划**: 基于工艺工序的生产计划生成算法
+- **成本估算**: 零部件和工艺成本计算逻辑
+- **投标报价**: 利润率设置和价格生成功能
+- **历史记录**: 数据变更追踪和审计日志
+
+### 下一步开发计划
+
+#### 短期目标（1-2周）
+1. **完善生产计划模块**
+   - 实现基于工艺工序的最优制造流程算法
+   - 添加生产计划表生成功能
+   - 支持计划调整和优化
+
+2. **开发成本估算功能**
+   - 零部件成本计算
+   - 工艺成本分析
+   - 总成本估算和报表
+
+3. **增强用户体验**
+   - 添加更多交互反馈
+   - 优化页面加载性能
+   - 完善错误处理机制
+
+#### 中期目标（1个月）
+1. **投标报价系统**
+   - 利润率设置界面
+   - 营销成本配置
+   - 代理商佣金计算
+   - 投标价格生成和导出
+
+2. **历史记录追踪**
+   - 合同参数修订记录
+   - 装箱单修改历史
+   - 分解表变更追踪
+
+3. **系统优化**
+   - 性能监控和优化
+   - 数据库查询优化
+   - 缓存策略优化
+
+#### 长期目标（2-3个月）
+1. **功能扩展**
+   - 移动端适配
+   - 多语言支持
+   - 高级报表功能
+   - 数据导入导出
+
+2. **技术升级**
+   - 微服务架构改造
+   - 容器编排优化
+   - 监控和日志系统
+   - CI/CD流水线
+
+### 技术债务
+- [ ] 完善单元测试覆盖率
+- [ ] 添加集成测试
+- [ ] 完善API文档
+- [ ] 代码质量检查工具集成
 
 ## 📞 联系方式
 
