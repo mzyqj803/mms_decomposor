@@ -230,7 +230,12 @@
           </p>
         </div>
         
-        <el-table :data="currentBreakdownData.allComponents" stripe style="margin-top: 20px">
+        <el-table 
+          :data="currentBreakdownData.allComponents" 
+          stripe 
+          style="margin-top: 20px"
+          :row-class-name="getRowClassName"
+        >
           <el-table-column prop="componentCode" label="部件编号" width="150" />
           <el-table-column prop="name" label="部件名称" min-width="200" />
           <el-table-column prop="quantity" label="数量" width="80" />
@@ -246,6 +251,12 @@
               <el-tag :type="row.commonPartsFlag ? 'warning' : 'info'">
                 {{ row.commonPartsFlag ? '是' : '否' }}
               </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="remark" label="备注" width="120">
+            <template #default="{ row }">
+              <span v-if="row.remark" class="problem-component-text">{{ row.remark }}</span>
+              <span v-else class="normal-component-text">-</span>
             </template>
           </el-table-column>
         </el-table>
@@ -265,6 +276,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { contractsApi } from '@/api/contracts'
 import { breakdownApi } from '@/api/breakdown'
+import '@/styles/problem-components.css'
 
 // 响应式数据
 const searchForm = reactive({
@@ -284,6 +296,11 @@ const searchLoading = ref(false)
 const breakdownLoading = ref(false)
 const exportLoading = ref(false)
 const breakdownLoadingContainerId = ref(null) // 当前正在分解的箱包ID
+
+// 获取表格行样式类名
+const getRowClassName = ({ row }) => {
+  return row.remark ? 'problem-component-row' : 'normal-component-row'
+}
 
 // 搜索合同
 const searchContracts = async () => {
@@ -462,7 +479,7 @@ const exportSingleBreakdown = async () => {
     // 创建Excel数据
     const breakdownData = currentBreakdownData.value
     const wsData = [
-      ['箱包号', '部件编号', '部件名称', '数量', '是否外购', '是否通用件']
+      ['箱包号', '部件编号', '部件名称', '数量', '是否外购', '是否通用件', '备注']
     ]
     
     breakdownData.allComponents.forEach(component => {
@@ -472,7 +489,8 @@ const exportSingleBreakdown = async () => {
         component.name,
         component.quantity,
         component.procurementFlag ? '是' : '否',
-        component.commonPartsFlag ? '是' : '否'
+        component.commonPartsFlag ? '是' : '否',
+        component.remark || ''
       ])
     })
     
@@ -599,6 +617,7 @@ const getStatusText = (status) => {
     font-size: 14px;
   }
 }
+
 
 .sub-component-item {
   display: flex;

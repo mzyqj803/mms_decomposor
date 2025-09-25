@@ -123,22 +123,11 @@ public class BreakdownServiceImpl implements BreakdownService {
         
         List<ContainerComponentsBreakdown> breakdowns = breakdownRepository.findByContainerId(containerId);
         
-        // 检查是否有分解结果
-        if (breakdowns.isEmpty()) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("containerId", containerId);
-            response.put("containerNo", container.getContainerNo());
-            response.put("containerName", container.getName());
-            response.put("hasBreakdown", false);
-            response.put("message", "该箱包尚未进行工艺分解");
-            return response;
-        }
-        
         // 创建扁平的组件列表，包含所有组件（父组件和子组件）
         Map<String, Map<String, Object>> allComponents = new HashMap<>();
         List<String> problemComponents = new ArrayList<>();
         
-        // 首先添加父组件
+        // 首先添加父组件（无论是否有分解结果都要显示）
         List<ContainerComponents> containerComponents = containerComponentsRepository.findByContainerId(containerId);
         for (ContainerComponents containerComponent : containerComponents) {
             String componentCode = containerComponent.getComponentNo();
@@ -157,10 +146,12 @@ public class BreakdownServiceImpl implements BreakdownService {
                     Components component = componentOpt.get();
                     componentInfo.put("procurementFlag", component.getProcurementFlag());
                     componentInfo.put("commonPartsFlag", component.getCommonPartsFlag());
+                    componentInfo.put("remark", ""); // 正常组件无备注
                 } else {
                     // 如果找不到匹配的组件，使用默认值并记录为问题部件
                     componentInfo.put("procurementFlag", false);
                     componentInfo.put("commonPartsFlag", false);
+                    componentInfo.put("remark", "工件不存在"); // 问题组件备注
                     String problem = String.format("部件编号 %s (%s) 在components表中找不到匹配项", 
                         componentCode, containerComponent.getComponentName());
                     problemComponents.add(problem);
@@ -174,6 +165,21 @@ public class BreakdownServiceImpl implements BreakdownService {
                 Integer currentQuantity = (Integer) existing.get("quantity");
                 existing.put("quantity", currentQuantity + containerComponent.getQuantity());
             }
+        }
+        
+        // 检查是否有分解结果
+        if (breakdowns.isEmpty()) {
+            // 即使没有分解结果，也要显示箱包中的工件
+            Map<String, Object> response = new HashMap<>();
+            response.put("containerId", containerId);
+            response.put("containerNo", container.getContainerNo());
+            response.put("containerName", container.getName());
+            response.put("hasBreakdown", true); // 改为true，表示有分解表可显示
+            response.put("allComponents", allComponents.values()); // 显示箱包中的工件
+            response.put("problemComponents", problemComponents);
+            response.put("totalComponents", allComponents.size());
+            response.put("message", "该箱包尚未进行工艺分解，显示箱包中的工件");
+            return response;
         }
         
         // 然后添加所有子组件
@@ -190,6 +196,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 existing.put("name", subComponent.getName());
                 existing.put("procurementFlag", subComponent.getProcurementFlag());
                 existing.put("commonPartsFlag", subComponent.getCommonPartsFlag());
+                existing.put("remark", ""); // 子组件正常，无备注
                 existing.put("isParentComponent", false); // 标记为子组件
             } else {
                 // 新的子组件
@@ -199,6 +206,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 componentInfo.put("quantity", breakdown.getQuantity());
                 componentInfo.put("procurementFlag", subComponent.getProcurementFlag());
                 componentInfo.put("commonPartsFlag", subComponent.getCommonPartsFlag());
+                componentInfo.put("remark", ""); // 子组件正常，无备注
                 componentInfo.put("isParentComponent", false); // 标记为子组件
                 allComponents.put(componentCode, componentInfo);
             }

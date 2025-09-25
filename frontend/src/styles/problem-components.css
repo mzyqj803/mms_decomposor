@@ -1,0 +1,86 @@
+/* 问题组件行样式 - 全局样式，用于Element Plus表格 */
+.problem-component-row {
+  background-color: #f56c6c !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+.problem-component-row td {
+  background-color: #f56c6c !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+/* 更具体的选择器来覆盖Element Plus的默认样式 */
+.el-table .problem-component-row td {
+  background-color: #f56c6c !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+.el-table .problem-component-row td .cell {
+  background-color: #f56c6c !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+/* 覆盖Element Plus的CSS变量 */
+.el-table .problem-component-row td .cell {
+  --el-table-text-color: white !important;
+  --el-table-row-hover-bg-color: #f56c6c !important;
+  --el-table-bg-color: #f56c6c !important;
+  --el-table-tr-bg-color: #f56c6c !important;
+}
+
+/* 更具体的选择器确保覆盖所有Element Plus样式 */
+.el-table__body .problem-component-row td .cell {
+  background-color: #f56c6c !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+.el-table__body .problem-component-row td .cell * {
+  color: white !important;
+  font-weight: bold !important;
+}
+
+/* 最高优先级的选择器来覆盖.cell样式 */
+.el-table__body tr.problem-component-row td.cell {
+  background-color: #f56c6c !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+.el-table__body tr.problem-component-row td.cell * {
+  background-color: transparent !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+/* 针对Element Plus表格的特定类名 */
+.el-table__body .el-table__row.problem-component-row .el-table__cell .cell {
+  background-color: #f56c6c !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+.problem-component-row .el-tag {
+  background-color: #f56c6c !important;
+  color: white !important;
+  border: 1px solid white !important;
+  font-weight: bold !important;
+}
+
+/* 正常组件行样式 */
+.normal-component-row {
+  background-color: inherit;
+}
+
+.normal-component-text {
+  color: #909399;
+}
+
+.problem-component-text {
+  color: white;
+  font-weight: bold;
+}
