@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ContainersComponentsSummaryRepository extends JpaRepository<ContainersComponentsSummary, Long> {
@@ -32,4 +33,10 @@ public interface ContainersComponentsSummaryRepository extends JpaRepository<Con
     @Transactional
     @Query("DELETE FROM ContainersComponentsSummary ccs WHERE ccs.contract.id = :contractId")
     void deleteByContractId(@Param("contractId") Long contractId);
+    
+    /**
+     * 根据合同ID和组件ID查找汇总记录
+     */
+    @Query("SELECT ccs FROM ContainersComponentsSummary ccs WHERE ccs.contract.id = :contractId AND ccs.component.id = :componentId")
+    Optional<ContainersComponentsSummary> findByContractIdAndComponentId(@Param("contractId") Long contractId, @Param("componentId") Long componentId);
 }

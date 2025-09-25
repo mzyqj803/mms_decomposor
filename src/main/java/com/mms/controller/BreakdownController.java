@@ -122,4 +122,47 @@ public class BreakdownController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+    
+    /**
+     * 合并分解表
+     */
+    @PostMapping("/merge")
+    public ResponseEntity<Map<String, Object>> mergeBreakdownTables(@RequestBody Map<String, Object> request) {
+        try {
+            @SuppressWarnings("unchecked")
+            java.util.List<Integer> containerIds = (java.util.List<Integer>) request.get("containerIds");
+            
+            log.info("开始合并分解表: containerIds={}", containerIds);
+            Map<String, Object> result = breakdownService.mergeBreakdownTables(containerIds);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("合并分解表失败: error={}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "message", "合并分解表失败: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 下载合并分解表PDF
+     */
+    @GetMapping("/merged/{contractId}/download")
+    public ResponseEntity<byte[]> downloadMergedBreakdownPdf(@PathVariable Long contractId) {
+        try {
+            log.info("下载合并分解表PDF: contractId={}", contractId);
+            byte[] pdfBytes = breakdownService.generateMergedBreakdownPdf(contractId);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", 
+                String.format("合并分解表_%d_%s.pdf", contractId, 
+                    java.time.LocalDate.now().toString()));
+            
+            return ResponseEntity.ok()
+                .headers(headers)
+                .body(pdfBytes);
+        } catch (Exception e) {
+            log.error("下载合并分解表PDF失败: contractId={}, error={}", contractId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

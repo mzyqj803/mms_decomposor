@@ -69,12 +69,18 @@
         <template #header>
           <div class="card-header">
             <span>箱包选择 - {{ selectedContract.contractNo }}</span>
-            <el-button type="primary" @click="breakdownAllContainers" :loading="breakdownLoading">
-              全部分解
-            </el-button>
+            <div class="header-buttons">
+              <el-button type="success" @click="mergeBreakdownTables" :loading="mergeLoading" :disabled="selectedContainers.length === 0">
+                合并分解表
+              </el-button>
+              <el-button type="primary" @click="breakdownAllContainers" :loading="breakdownLoading">
+                全部分解
+              </el-button>
+            </div>
           </div>
         </template>
-        <el-table :data="containers" stripe>
+        <el-table :data="containers" stripe @selection-change="handleSelectionChange">
+          <el-table-column type="selection" width="55" :selectable="isSelectable" />
           <el-table-column prop="containerNo" label="箱包号" width="200" />
           <el-table-column prop="name" label="箱包名称" />
           <el-table-column prop="containerSize" label="尺寸" width="120" />
@@ -295,7 +301,11 @@ const currentBreakdownData = ref(null) // 当前要显示的分解数据
 const searchLoading = ref(false)
 const breakdownLoading = ref(false)
 const exportLoading = ref(false)
+const mergeLoading = ref(false)
 const breakdownLoadingContainerId = ref(null) // 当前正在分解的箱包ID
+
+// 合并分解表相关
+const selectedContainers = ref([]) // 选中的箱包
 
 // 获取表格行样式类名
 const getRowClassName = ({ row }) => {
@@ -561,6 +571,56 @@ const getStatusText = (status) => {
   }
   return statusMap[status] || status
 }
+
+// 检查行是否可选择（只有已分解的箱包才能选择）
+const isSelectable = (row) => {
+  return row.status === 1
+}
+
+// 处理选择变化
+const handleSelectionChange = (selection) => {
+  selectedContainers.value = selection
+}
+
+// 合并分解表
+const mergeBreakdownTables = async () => {
+  if (selectedContainers.value.length === 0) {
+    ElMessage.warning('请选择要合并的箱包')
+    return
+  }
+  
+  try {
+    mergeLoading.value = true
+    
+    const containerIds = selectedContainers.value.map(container => container.id)
+    const response = await breakdownApi.mergeBreakdownTables(containerIds)
+    
+    if (response.success) {
+      ElMessage.success('合并分解表成功')
+      
+      // 生成下载链接
+      const downloadUrl = response.downloadUrl
+      if (downloadUrl) {
+        // 创建下载链接
+        const link = document.createElement('a')
+        link.href = downloadUrl
+        link.download = `合并分解表_${selectedContract.value.contractNo}_${new Date().toISOString().slice(0, 10)}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        ElMessage.success('PDF文件已开始下载')
+      }
+    } else {
+      ElMessage.error(response.message || '合并分解表失败')
+    }
+  } catch (error) {
+    console.error('合并分解表失败:', error)
+    ElMessage.error('合并分解表失败')
+  } finally {
+    mergeLoading.value = false
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -581,6 +641,17 @@ const getStatusText = (status) => {
   .description {
     color: #606266;
     font-size: 14px;
+  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  .header-buttons {
+    display: flex;
+    gap: 10px;
   }
 }
 

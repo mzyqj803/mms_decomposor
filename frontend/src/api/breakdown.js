@@ -49,5 +49,14 @@ export const breakdownApi = {
       params: { format },
       responseType: 'blob'
     })
+  },
+
+  // 合并分解表
+  mergeBreakdownTables(containerIds) {
+    return request({
+      url: '/breakdown/merge',
+      method: 'post',
+      data: { containerIds }
+    })
   }
 }

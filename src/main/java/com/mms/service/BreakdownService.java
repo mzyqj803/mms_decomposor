@@ -1,5 +1,6 @@
 package com.mms.service;
 
+import java.util.List;
 import java.util.Map;
 
 public interface BreakdownService {
@@ -46,4 +47,18 @@ public interface BreakdownService {
      * @return 文件字节数组
      */
     byte[] exportBreakdown(Long contractId, String format);
+    
+    /**
+     * 合并分解表
+     * @param containerIds 箱包ID列表
+     * @return 合并结果，包含下载链接
+     */
+    Map<String, Object> mergeBreakdownTables(List<Integer> containerIds);
+    
+    /**
+     * 生成合并分解表PDF
+     * @param contractId 合同ID
+     * @return PDF文件字节数组
+     */
+    byte[] generateMergedBreakdownPdf(Long contractId);
 }

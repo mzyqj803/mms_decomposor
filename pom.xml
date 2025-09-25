@@ -88,8 +88,8 @@
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.5</version>
         </dependency>
-
-        <!-- PDF Generation -->
+        
+        <!-- iText for PDF generation -->
         <dependency>
             <groupId>com.itextpdf</groupId>
             <artifactId>itext-core</artifactId>

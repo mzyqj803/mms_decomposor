@@ -170,4 +170,19 @@ CREATE TABLE IF NOT EXISTS container_components_breakdown (
   CONSTRAINT fk_ccb_container FOREIGN KEY (Container_ID)            REFERENCES containers(ID)
 ) ENGINE=InnoDB;
 
+-- 11) Container_Components_Breakdown_Problems
+CREATE TABLE IF NOT EXISTS container_components_breakdown_problems (
+  ID                         INT PRIMARY KEY AUTO_INCREMENT,
+  Container_ID               INT,
+  Component_No               VARCHAR(255),
+  Quantity                   INT,
+  Entry_TS                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+  Entry_User                 VARCHAR(50) DEFAULT 'SYS_USER',
+  Last_Update_TS             TIMESTAMP DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP(),
+  Last_Update_User           VARCHAR(50) DEFAULT 'SYS_USER',
+  INDEX idx_ccbp_container (Container_ID),
+  INDEX idx_ccbp_component_no (Component_No),
+  CONSTRAINT fk_ccbp_container FOREIGN KEY (Container_ID) REFERENCES containers(ID)
+) ENGINE=InnoDB;
+
 SET FOREIGN_KEY_CHECKS = 1;
