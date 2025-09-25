@@ -87,10 +87,9 @@
                 @click="breakdownContainer(row)"
                 :loading="breakdownLoading && breakdownLoadingContainerId === row.id"
               >
-                {{ containerBreakdownStatus[row.id] ? '重新分解' : '工艺分解' }}
+                工艺分解
               </el-button>
               <el-button 
-                v-if="containerBreakdownStatus[row.id]" 
                 type="primary" 
                 size="small" 
                 @click="viewBreakdownTable(row)"
@@ -163,16 +162,16 @@
             :name="containerResult.containerId"
           >
             <div class="container-detail">
-              <p><strong>处理部件数：</strong>{{ containerResult.processedComponents }}</p>
+              <p><strong>总组件数：</strong>{{ containerResult.totalComponents }}</p>
               <p v-if="containerResult.problemComponents && containerResult.problemComponents.length > 0">
                 <strong>问题部件：</strong>
                 <span style="color: #f56c6c">{{ containerResult.problemComponents.join(', ') }}</span>
               </p>
               
               <!-- 部件分解详情 -->
-              <el-table :data="containerResult.breakdownResults" style="margin-top: 15px">
-                <el-table-column prop="componentNo" label="部件编号" width="150" />
-                <el-table-column prop="componentName" label="部件名称" />
+              <el-table :data="containerResult.allComponents" style="margin-top: 15px">
+                <el-table-column prop="componentCode" label="部件编号" width="150" />
+                <el-table-column prop="name" label="部件名称" />
                 <el-table-column prop="quantity" label="数量" width="80" />
                 <el-table-column prop="procurementFlag" label="是否外购" width="100">
                   <template #default="{ row }">
@@ -181,19 +180,11 @@
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="子部件" min-width="200">
+                <el-table-column prop="commonPartsFlag" label="是否通用件" width="100">
                   <template #default="{ row }">
-                    <div v-if="row.subComponents && row.subComponents.length > 0">
-                      <el-tag
-                        v-for="sub in row.subComponents"
-                        :key="sub.componentCode"
-                        size="small"
-                        style="margin-right: 5px; margin-bottom: 5px"
-                      >
-                        {{ sub.componentCode }} ({{ sub.name }})
-                      </el-tag>
-                    </div>
-                    <span v-else style="color: #909399">无子部件</span>
+                    <el-tag :type="row.commonPartsFlag ? 'warning' : 'info'">
+                      {{ row.commonPartsFlag ? '是' : '否' }}
+                    </el-tag>
                   </template>
                 </el-table-column>
               </el-table>
@@ -213,16 +204,16 @@
       <div v-if="currentBreakdownData">
         <div class="breakdown-dialog-header">
           <h3>{{ currentBreakdownData.containerNo }} - {{ currentBreakdownData.containerName }}</h3>
-          <p><strong>处理部件数：</strong>{{ currentBreakdownData.processedComponents }}</p>
+          <p><strong>总组件数：</strong>{{ currentBreakdownData.totalComponents }}</p>
           <p v-if="currentBreakdownData.problemComponents && currentBreakdownData.problemComponents.length > 0">
             <strong>问题部件：</strong>
             <span style="color: #f56c6c">{{ currentBreakdownData.problemComponents.join(', ') }}</span>
           </p>
         </div>
         
-        <el-table :data="currentBreakdownData.breakdownResults" stripe style="margin-top: 20px">
-          <el-table-column prop="componentNo" label="部件编号" width="150" />
-          <el-table-column prop="componentName" label="部件名称" min-width="200" />
+        <el-table :data="currentBreakdownData.allComponents" stripe style="margin-top: 20px">
+          <el-table-column prop="componentCode" label="部件编号" width="150" />
+          <el-table-column prop="name" label="部件名称" min-width="200" />
           <el-table-column prop="quantity" label="数量" width="80" />
           <el-table-column prop="procurementFlag" label="是否外购" width="100">
             <template #default="{ row }">
@@ -231,17 +222,11 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="子部件" min-width="300">
+          <el-table-column prop="commonPartsFlag" label="是否通用件" width="100">
             <template #default="{ row }">
-              <div v-if="row.subComponents && row.subComponents.length > 0">
-                <div v-for="sub in row.subComponents" :key="sub.componentCode" class="sub-component-item">
-                  <el-tag size="small" style="margin-right: 5px; margin-bottom: 5px">
-                    {{ sub.componentCode }}
-                  </el-tag>
-                  <span style="font-size: 12px; color: #606266">{{ sub.name }}</span>
-                </div>
-              </div>
-              <span v-else style="color: #909399">无子部件</span>
+              <el-tag :type="row.commonPartsFlag ? 'warning' : 'info'">
+                {{ row.commonPartsFlag ? '是' : '否' }}
+              </el-tag>
             </template>
           </el-table-column>
         </el-table>
@@ -272,7 +257,6 @@ const selectedContract = ref(null)
 const containers = ref([])
 const breakdownResults = ref(null)
 const activeCollapse = ref([])
-const containerBreakdownStatus = ref({}) // 跟踪每个箱包的分解状态
 const showBreakdownDialog = ref(false) // 控制分解表弹窗显示
 const currentBreakdownData = ref(null) // 当前要显示的分解数据
 
@@ -314,48 +298,21 @@ const selectContract = async (contract) => {
     
     if (containers.value.length === 0) {
       ElMessage.info('该合同暂无箱包数据')
-    } else {
-      // 检查每个箱包的分解状态
-      await checkContainerBreakdownStatus()
     }
+    // 移除自动检查分解状态的逻辑，改为点击时再查询
   } catch (error) {
     console.error('获取箱包列表失败:', error)
     ElMessage.error('获取箱包列表失败')
   }
 }
 
-// 检查箱包分解状态
-const checkContainerBreakdownStatus = async () => {
-  for (const container of containers.value) {
-    try {
-      const response = await breakdownApi.getContainerBreakdown(container.id)
-      if (response.hasBreakdown) {
-        containerBreakdownStatus.value[container.id] = {
-          containerId: container.id,
-          containerNo: container.containerNo,
-          containerName: container.name,
-          processedComponents: response.processedComponents,
-          problemComponents: response.problemComponents,
-          breakdownResults: response.breakdownResults,
-          breakdownTime: response.breakdownTime || '未知时间'
-        }
-      }
-    } catch (error) {
-      console.error(`检查箱包 ${container.containerNo} 分解状态失败:`, error)
-    }
-  }
-}
+// 移除checkContainerBreakdownStatus函数，改为点击时再查询
 
 // 分解单个箱包
 const breakdownContainer = async (container) => {
   try {
-    const isReBreakdown = containerBreakdownStatus.value[container.id]
-    const confirmMessage = isReBreakdown 
-      ? `确定要重新对箱包 ${container.containerNo} 进行工艺分解吗？这将删除上次的分解结果。`
-      : `确定要对箱包 ${container.containerNo} 进行工艺分解吗？`
-    
     await ElMessageBox.confirm(
-      confirmMessage,
+      `确定要对箱包 ${container.containerNo} 进行工艺分解吗？`,
       '确认分解',
       {
         confirmButtonText: '确定',
@@ -367,37 +324,15 @@ const breakdownContainer = async (container) => {
     breakdownLoading.value = true
     breakdownLoadingContainerId.value = container.id
     
-    // 如果是重新分解，先删除之前的分解结果
-    if (isReBreakdown) {
-      try {
-        await breakdownApi.deleteContainerBreakdown(container.id)
-        ElMessage.info('已删除之前的分解结果')
-      } catch (error) {
-        console.error('删除分解结果失败:', error)
-        ElMessage.warning('删除分解结果失败，但将继续进行分解')
-      }
-    }
-    
     const response = await breakdownApi.breakdownContainer(container.id)
     
     ElMessage.success('箱包工艺分解完成')
-    
-    // 更新分解状态
-    containerBreakdownStatus.value[container.id] = {
-      containerId: container.id,
-      containerNo: container.containerNo,
-      containerName: container.name,
-      processedComponents: response.processedComponents,
-      problemComponents: response.problemComponents,
-      breakdownResults: response.breakdownResults,
-      breakdownTime: response.breakdownTime || new Date().toLocaleString()
-    }
     
     // 显示分解结果
     breakdownResults.value = {
       containerResults: [response],
       totalContainers: 1,
-      totalProcessedComponents: response.processedComponents,
+      totalProcessedComponents: response.totalComponents,
       allProblemComponents: response.problemComponents
     }
     
@@ -442,13 +377,28 @@ const breakdownAllContainers = async () => {
 }
 
 // 查看分解表
-const viewBreakdownTable = (container) => {
-  const breakdownData = containerBreakdownStatus.value[container.id]
-  if (breakdownData) {
-    currentBreakdownData.value = breakdownData
-    showBreakdownDialog.value = true
-  } else {
-    ElMessage.warning('该箱包尚未进行工艺分解')
+const viewBreakdownTable = async (container) => {
+  try {
+    // 点击时才查询分解数据
+    const response = await breakdownApi.getContainerBreakdown(container.id)
+    
+    if (response.hasBreakdown) {
+      currentBreakdownData.value = {
+        containerId: container.id,
+        containerNo: container.containerNo,
+        containerName: container.name,
+        totalComponents: response.totalComponents,
+        problemComponents: response.problemComponents,
+        allComponents: response.allComponents,
+        breakdownTime: response.breakdownTime || '未知时间'
+      }
+      showBreakdownDialog.value = true
+    } else {
+      ElMessage.warning('该箱包尚未进行工艺分解')
+    }
+  } catch (error) {
+    console.error('获取分解表失败:', error)
+    ElMessage.error('获取分解表失败')
   }
 }
 
@@ -463,33 +413,18 @@ const exportSingleBreakdown = async () => {
     // 创建Excel数据
     const breakdownData = currentBreakdownData.value
     const wsData = [
-      ['箱包号', '部件编号', '部件名称', '数量', '是否外购', '子部件编号', '子部件名称']
+      ['箱包号', '部件编号', '部件名称', '数量', '是否外购', '是否通用件']
     ]
     
-    breakdownData.breakdownResults.forEach(result => {
-      if (result.subComponents && result.subComponents.length > 0) {
-        result.subComponents.forEach(sub => {
-          wsData.push([
-            breakdownData.containerNo,
-            result.componentNo,
-            result.componentName,
-            result.quantity,
-            result.procurementFlag ? '是' : '否',
-            sub.componentCode,
-            sub.name
-          ])
-        })
-      } else {
-        wsData.push([
-          breakdownData.containerNo,
-          result.componentNo,
-          result.componentName,
-          result.quantity,
-          result.procurementFlag ? '是' : '否',
-          '',
-          '无子部件'
-        ])
-      }
+    breakdownData.allComponents.forEach(component => {
+      wsData.push([
+        breakdownData.containerNo,
+        component.componentCode,
+        component.name,
+        component.quantity,
+        component.procurementFlag ? '是' : '否',
+        component.commonPartsFlag ? '是' : '否'
+      ])
     })
     
     // 创建CSV内容

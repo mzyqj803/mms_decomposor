@@ -126,36 +126,74 @@ public class BreakdownServiceImpl implements BreakdownService {
             return response;
         }
         
-        // 重新构建分解结果，按父部件分组
-        Map<String, Map<String, Object>> groupedResults = new HashMap<>();
+        // 创建扁平的组件列表，包含所有组件（父组件和子组件）
+        Map<String, Map<String, Object>> allComponents = new HashMap<>();
         List<String> problemComponents = new ArrayList<>();
         
-        for (ContainerComponentsBreakdown breakdown : breakdowns) {
-            ContainerComponents containerComponent = breakdown.getContainerComponent();
-            Components subComponent = breakdown.getSubComponent();
+        // 首先添加父组件
+        List<ContainerComponents> containerComponents = containerComponentsRepository.findByContainerId(containerId);
+        for (ContainerComponents containerComponent : containerComponents) {
+            String componentCode = containerComponent.getComponentNo();
             
-            String parentComponentNo = containerComponent.getComponentNo();
+            // 检查该组件是否在components表中存在
+            Optional<Components> componentOpt = componentsRepository.findByComponentCode(componentCode);
             
-            if (!groupedResults.containsKey(parentComponentNo)) {
-                Map<String, Object> parentResult = new HashMap<>();
-                parentResult.put("componentNo", containerComponent.getComponentNo());
-                parentResult.put("componentName", containerComponent.getComponentName());
-                parentResult.put("quantity", containerComponent.getQuantity());
-                parentResult.put("procurementFlag", false); // 默认值，需要从components表获取
-                parentResult.put("subComponents", new ArrayList<Map<String, Object>>());
-                groupedResults.put(parentComponentNo, parentResult);
+            if (!allComponents.containsKey(componentCode)) {
+                Map<String, Object> componentInfo = new HashMap<>();
+                componentInfo.put("componentCode", componentCode);
+                componentInfo.put("name", containerComponent.getComponentName());
+                componentInfo.put("quantity", containerComponent.getQuantity());
+                
+                if (componentOpt.isPresent()) {
+                    // 如果找到匹配的组件，使用其属性
+                    Components component = componentOpt.get();
+                    componentInfo.put("procurementFlag", component.getProcurementFlag());
+                    componentInfo.put("commonPartsFlag", component.getCommonPartsFlag());
+                } else {
+                    // 如果找不到匹配的组件，使用默认值并记录为问题部件
+                    componentInfo.put("procurementFlag", false);
+                    componentInfo.put("commonPartsFlag", false);
+                    String problem = String.format("部件编号 %s (%s) 在components表中找不到匹配项", 
+                        componentCode, containerComponent.getComponentName());
+                    problemComponents.add(problem);
+                }
+                
+                componentInfo.put("isParentComponent", true); // 标记为父组件
+                allComponents.put(componentCode, componentInfo);
+            } else {
+                // 合并同ComponentNo的父组件，累加数量
+                Map<String, Object> existing = allComponents.get(componentCode);
+                Integer currentQuantity = (Integer) existing.get("quantity");
+                existing.put("quantity", currentQuantity + containerComponent.getQuantity());
             }
+        }
+        
+        // 然后添加所有子组件
+        for (ContainerComponentsBreakdown breakdown : breakdowns) {
+            Components subComponent = breakdown.getSubComponent();
+            String componentCode = subComponent.getComponentCode();
             
-            // 添加子部件信息
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> subComponents = (List<Map<String, Object>>) groupedResults.get(parentComponentNo).get("subComponents");
-            
-            Map<String, Object> subComponentInfo = new HashMap<>();
-            subComponentInfo.put("componentCode", subComponent.getComponentCode());
-            subComponentInfo.put("name", subComponent.getName());
-            subComponentInfo.put("procurementFlag", subComponent.getProcurementFlag());
-            subComponentInfo.put("commonPartsFlag", subComponent.getCommonPartsFlag());
-            subComponents.add(subComponentInfo);
+            if (allComponents.containsKey(componentCode)) {
+                // 合并同ComponentNo的组件，累加数量
+                Map<String, Object> existing = allComponents.get(componentCode);
+                Integer currentQuantity = (Integer) existing.get("quantity");
+                existing.put("quantity", currentQuantity + breakdown.getQuantity());
+                // 更新其他信息
+                existing.put("name", subComponent.getName());
+                existing.put("procurementFlag", subComponent.getProcurementFlag());
+                existing.put("commonPartsFlag", subComponent.getCommonPartsFlag());
+                existing.put("isParentComponent", false); // 标记为子组件
+            } else {
+                // 新的子组件
+                Map<String, Object> componentInfo = new HashMap<>();
+                componentInfo.put("componentCode", componentCode);
+                componentInfo.put("name", subComponent.getName());
+                componentInfo.put("quantity", breakdown.getQuantity());
+                componentInfo.put("procurementFlag", subComponent.getProcurementFlag());
+                componentInfo.put("commonPartsFlag", subComponent.getCommonPartsFlag());
+                componentInfo.put("isParentComponent", false); // 标记为子组件
+                allComponents.put(componentCode, componentInfo);
+            }
         }
         
         Map<String, Object> response = new HashMap<>();
@@ -163,9 +201,9 @@ public class BreakdownServiceImpl implements BreakdownService {
         response.put("containerNo", container.getContainerNo());
         response.put("containerName", container.getName());
         response.put("hasBreakdown", true);
-        response.put("breakdownResults", groupedResults.values());
+        response.put("allComponents", allComponents.values()); // 返回扁平的组件列表
         response.put("problemComponents", problemComponents);
-        response.put("processedComponents", groupedResults.size());
+        response.put("totalComponents", allComponents.size());
         
         return response;
     }
@@ -225,24 +263,12 @@ public class BreakdownServiceImpl implements BreakdownService {
             result.put("procurementFlag", component.getProcurementFlag());
             result.put("commonPartsFlag", component.getCommonPartsFlag());
             
-            // 查找子部件
-            List<ComponentsRelationship> childRelations = componentsRelationshipRepository.findByParentId(component.getId());
-            List<Map<String, Object>> subComponents = new ArrayList<>();
+            // 递归查找所有子部件，并保存到数据库
+            Set<String> processedComponents = new HashSet<>(); // 防止循环引用
+            processChildComponentsRecursively(component, containerComponent, processedComponents);
             
-            for (ComponentsRelationship relation : childRelations) {
-                Components subComponent = relation.getChild();
-                Map<String, Object> subComponentInfo = new HashMap<>();
-                subComponentInfo.put("componentCode", subComponent.getComponentCode());
-                subComponentInfo.put("name", subComponent.getName());
-                subComponentInfo.put("procurementFlag", subComponent.getProcurementFlag());
-                subComponentInfo.put("commonPartsFlag", subComponent.getCommonPartsFlag());
-                subComponents.add(subComponentInfo);
-                
-                // 保存分解记录
-                saveBreakdownRecord(containerComponent, subComponent, containerComponent.getQuantity());
-            }
-            
-            result.put("subComponents", subComponents);
+            // 不再返回subComponents，因为所有组件都会在总的列表中显示
+            result.put("subComponents", new ArrayList<>());
         } else {
             // 找不到匹配的部件，记录为问题部件
             String problem = String.format("部件编号 %s (%s) 在components表中找不到匹配项", 
@@ -252,6 +278,33 @@ public class BreakdownServiceImpl implements BreakdownService {
         
         result.put("problems", problems);
         return result;
+    }
+    
+    /**
+     * 递归处理子部件
+     */
+    private void processChildComponentsRecursively(Components parentComponent, 
+                                                   ContainerComponents containerComponent, 
+                                                   Set<String> processedComponents) {
+        // 防止循环引用
+        String componentKey = parentComponent.getId().toString();
+        if (processedComponents.contains(componentKey)) {
+            return;
+        }
+        processedComponents.add(componentKey);
+        
+        // 查找直接子部件
+        List<ComponentsRelationship> childRelations = componentsRelationshipRepository.findByParentId(parentComponent.getId());
+        
+        for (ComponentsRelationship relation : childRelations) {
+            Components childComponent = relation.getChild();
+            
+            // 保存分解记录
+            saveBreakdownRecord(containerComponent, childComponent, containerComponent.getQuantity());
+            
+            // 递归处理子部件的子部件
+            processChildComponentsRecursively(childComponent, containerComponent, processedComponents);
+        }
     }
     
     /**
@@ -273,32 +326,66 @@ public class BreakdownServiceImpl implements BreakdownService {
     private Map<String, Object> generateBreakdownSummary(Long contractId) {
         List<ContainerComponentsBreakdown> allBreakdowns = breakdownRepository.findByContractId(contractId);
         
-        // 按component_no合并计算数量
-        Map<String, Map<String, Object>> componentSummary = new HashMap<>();
+        // 创建扁平的组件汇总，包含所有组件（父组件和子组件）
+        Map<String, Map<String, Object>> allComponentsSummary = new HashMap<>();
         
+        // 首先添加所有父组件
+        List<Containers> containers = containersRepository.findByContractId(contractId);
+        for (Containers container : containers) {
+            List<ContainerComponents> containerComponents = containerComponentsRepository.findByContainerId(container.getId());
+            for (ContainerComponents containerComponent : containerComponents) {
+                String componentCode = containerComponent.getComponentNo();
+                if (allComponentsSummary.containsKey(componentCode)) {
+                    // 合并同ComponentNo的父组件，累加数量
+                    Map<String, Object> existing = allComponentsSummary.get(componentCode);
+                    Integer currentQuantity = (Integer) existing.get("totalQuantity");
+                    existing.put("totalQuantity", currentQuantity + containerComponent.getQuantity());
+                } else {
+                    // 新的父组件
+                    Map<String, Object> componentInfo = new HashMap<>();
+                    componentInfo.put("componentCode", componentCode);
+                    componentInfo.put("name", containerComponent.getComponentName());
+                    componentInfo.put("procurementFlag", false); // 默认值
+                    componentInfo.put("commonPartsFlag", false); // 默认值
+                    componentInfo.put("totalQuantity", containerComponent.getQuantity());
+                    componentInfo.put("isParentComponent", true); // 标记为父组件
+                    allComponentsSummary.put(componentCode, componentInfo);
+                }
+            }
+        }
+        
+        // 然后添加所有子组件
         for (ContainerComponentsBreakdown breakdown : allBreakdowns) {
             Components component = breakdown.getSubComponent();
             String componentCode = component.getComponentCode();
             
-            if (componentSummary.containsKey(componentCode)) {
-                Map<String, Object> existing = componentSummary.get(componentCode);
+            if (allComponentsSummary.containsKey(componentCode)) {
+                // 合并同ComponentNo的组件，累加数量
+                Map<String, Object> existing = allComponentsSummary.get(componentCode);
                 Integer currentQuantity = (Integer) existing.get("totalQuantity");
                 existing.put("totalQuantity", currentQuantity + breakdown.getQuantity());
+                // 更新其他信息
+                existing.put("name", component.getName());
+                existing.put("procurementFlag", component.getProcurementFlag());
+                existing.put("commonPartsFlag", component.getCommonPartsFlag());
+                existing.put("isParentComponent", false); // 标记为子组件
             } else {
+                // 新的子组件
                 Map<String, Object> componentInfo = new HashMap<>();
                 componentInfo.put("componentCode", componentCode);
                 componentInfo.put("name", component.getName());
                 componentInfo.put("procurementFlag", component.getProcurementFlag());
                 componentInfo.put("commonPartsFlag", component.getCommonPartsFlag());
                 componentInfo.put("totalQuantity", breakdown.getQuantity());
-                componentSummary.put(componentCode, componentInfo);
+                componentInfo.put("isParentComponent", false); // 标记为子组件
+                allComponentsSummary.put(componentCode, componentInfo);
             }
         }
         
         Map<String, Object> summary = new HashMap<>();
         summary.put("contractId", contractId);
-        summary.put("componentSummary", componentSummary.values());
-        summary.put("totalComponents", componentSummary.size());
+        summary.put("allComponents", allComponentsSummary.values()); // 返回扁平的组件列表
+        summary.put("totalComponents", allComponentsSummary.size());
         
         return summary;
     }
