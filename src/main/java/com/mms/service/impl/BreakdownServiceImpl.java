@@ -3,6 +3,8 @@ package com.mms.service.impl;
 import com.mms.entity.*;
 import com.mms.repository.*;
 import com.mms.service.BreakdownService;
+import com.mms.service.ComponentCacheService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.colors.ColorConstants;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +36,8 @@ public class BreakdownServiceImpl implements BreakdownService {
     private final ContainersComponentsSummaryRepository containersComponentsSummaryRepository;
     private final ContainerComponentsBreakdownProblemsRepository problemsRepository;
     private final ContractsRepository contractsRepository;
+    private final ComponentCacheService componentCacheService;
+    private final ObjectMapper objectMapper;
     
     @Override
     @Transactional
@@ -65,7 +70,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 problemComponents.addAll(problems);
                 
                 // 检查该部件是否在components表中存在
-                Optional<Components> componentOpt = componentsRepository.findByComponentCode(containerComponent.getComponentNo());
+                Optional<Components> componentOpt = getComponentByCode(containerComponent.getComponentNo());
                 if (componentOpt.isEmpty()) {
                     // 保存问题部件到问题件表
                     ContainerComponentsBreakdownProblems problem = new ContainerComponentsBreakdownProblems();
@@ -165,7 +170,7 @@ public class BreakdownServiceImpl implements BreakdownService {
             String componentCode = containerComponent.getComponentNo();
             
             // 检查该组件是否在components表中存在
-            Optional<Components> componentOpt = componentsRepository.findByComponentCode(componentCode);
+            Optional<Components> componentOpt = getComponentByCode(componentCode);
             
             if (!allComponents.containsKey(componentCode)) {
                 Map<String, Object> componentInfo = new HashMap<>();
@@ -296,6 +301,42 @@ public class BreakdownServiceImpl implements BreakdownService {
     }
     
     /**
+     * 从缓存或数据库中获取零部件信息
+     */
+    private Optional<Components> getComponentByCode(String componentCode) {
+        // 优先从Redis缓存中获取
+        Optional<String> cachedComponentJson = componentCacheService.getComponentFromCache(componentCode);
+        
+        if (cachedComponentJson.isPresent()) {
+            try {
+                Components component = objectMapper.readValue(cachedComponentJson.get(), Components.class);
+                log.debug("从缓存获取零部件: {}", componentCode);
+                return Optional.of(component);
+            } catch (Exception e) {
+                log.error("解析缓存中的零部件JSON失败: componentCode={}, error={}", 
+                    componentCode, e.getMessage());
+            }
+        }
+        
+        // 缓存中没有或解析失败，从数据库获取
+        Optional<Components> componentOpt = componentsRepository.findByComponentCode(componentCode);
+        if (componentOpt.isPresent()) {
+            log.debug("从数据库获取零部件: {}", componentCode);
+            
+            // 将获取到的零部件存储到缓存中
+            try {
+                String componentJson = objectMapper.writeValueAsString(componentOpt.get());
+                componentCacheService.putComponentToCache(componentCode, componentJson);
+            } catch (Exception e) {
+                log.error("将零部件存储到缓存失败: componentCode={}, error={}", 
+                    componentCode, e.getMessage());
+            }
+        }
+        
+        return componentOpt;
+    }
+    
+    /**
      * 处理单个部件
      */
     private Map<String, Object> processComponent(ContainerComponents containerComponent) {
@@ -306,8 +347,8 @@ public class BreakdownServiceImpl implements BreakdownService {
         result.put("componentName", containerComponent.getComponentName());
         result.put("quantity", containerComponent.getQuantity());
         
-        // 根据component_no在components表中查找匹配的部件
-        Optional<Components> componentOpt = componentsRepository.findByComponentCode(containerComponent.getComponentNo());
+        // 根据component_no在缓存或数据库中查找匹配的部件
+        Optional<Components> componentOpt = getComponentByCode(containerComponent.getComponentNo());
         
         if (componentOpt.isPresent()) {
             Components component = componentOpt.get();
@@ -465,7 +506,8 @@ public class BreakdownServiceImpl implements BreakdownService {
         int totalContainers = 0;
         
         for (Integer containerId : containerIds) {
-            Containers container = containersRepository.findById(containerId.longValue())
+            // 验证箱包是否存在
+            containersRepository.findById(containerId.longValue())
                 .orElseThrow(() -> new RuntimeException("箱包不存在: " + containerId));
             
             // 获取该箱包的分解数据
@@ -500,6 +542,33 @@ public class BreakdownServiceImpl implements BreakdownService {
         log.info("删除合同 {} 之前的合并分解表", contractId);
         containersComponentsSummaryRepository.deleteByContractId(contractId);
         
+        // 保存正常部件到合并表，需要追踪每个部件来自哪个箱包
+        Map<String, String> componentToContainerMap = new HashMap<>(); // 记录部件来源箱包
+        
+        // 首先收集每个部件来自哪些箱包
+        for (Integer containerId : containerIds) {
+            Containers container = containersRepository.findById(containerId.longValue())
+                .orElseThrow(() -> new RuntimeException("箱包不存在: " + containerId));
+            
+            Map<String, Object> breakdownData = getContainerBreakdown(containerId.longValue());
+            @SuppressWarnings("unchecked")
+            Collection<Map<String, Object>> components = (Collection<Map<String, Object>>) breakdownData.get("allComponents");
+            
+            for (Map<String, Object> component : components) {
+                String componentCode = (String) component.get("componentCode");
+                String remark = (String) component.get("remark");
+                
+                // 只记录正常部件（在components表中存在的部件）
+                if (remark == null || remark.isEmpty()) {
+                    // 如果该部件还没有记录来源箱包，或者当前箱包名称更具体，则更新
+                    if (!componentToContainerMap.containsKey(componentCode) || 
+                        container.getName().length() > componentToContainerMap.get(componentCode).length()) {
+                        componentToContainerMap.put(componentCode, container.getName());
+                    }
+                }
+            }
+        }
+        
         // 保存正常部件到合并表
         for (Map<String, Object> component : mergedComponents.values()) {
             String componentCode = (String) component.get("componentCode");
@@ -508,7 +577,7 @@ public class BreakdownServiceImpl implements BreakdownService {
             
             // 只处理正常部件（在components表中存在的部件）
             if (remark == null || remark.isEmpty()) {
-                Optional<Components> componentOpt = componentsRepository.findByComponentCode(componentCode);
+                Optional<Components> componentOpt = getComponentByCode(componentCode);
                 if (componentOpt.isPresent()) {
                     Components comp = componentOpt.get();
                     
@@ -518,7 +587,19 @@ public class BreakdownServiceImpl implements BreakdownService {
                     Contracts contract = contractsRepository.findById(contractId).orElseThrow();
                     summary.setContract(contract);
                     summary.setComponent(comp);
-                    summary.setContainer(null); // 合并表不关联特定箱包
+                    
+                    // 设置箱包信息，优先使用记录中的箱包名称
+                    String containerName = componentToContainerMap.get(componentCode);
+                    if (containerName != null) {
+                        // 查找对应的箱包实体
+                        Optional<Containers> containerOpt = containers.stream()
+                            .filter(c -> c.getName().equals(containerName))
+                            .findFirst();
+                        summary.setContainer(containerOpt.orElse(null));
+                    } else {
+                        summary.setContainer(null); // 如果找不到箱包信息
+                    }
+                    
                     summary.setQuantity(quantity);
                     containersComponentsSummaryRepository.save(summary);
                 }
@@ -644,31 +725,113 @@ public class BreakdownServiceImpl implements BreakdownService {
             table.addHeaderCell(new Cell().add(new Paragraph("是否外购").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
             table.addHeaderCell(new Cell().add(new Paragraph("备注").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
             
-            // 添加正常部件数据行
-            int index = 1;
+            // 创建数据行列表并按箱包名称排序
+            List<Map<String, Object>> allRows = new ArrayList<>();
+            
+            // 添加正常部件数据
             for (ContainersComponentsSummary summary : summaries) {
                 Components component = summary.getComponent();
-                
-                table.addCell(new Cell().add(new Paragraph(String.valueOf(index))).setTextAlignment(TextAlignment.CENTER));
-                table.addCell(new Cell().add(new Paragraph("合并表"))); // 合并表中的正常部件
-                table.addCell(new Cell().add(new Paragraph(component.getComponentCode())));
-                table.addCell(new Cell().add(new Paragraph(component.getName())));
-                table.addCell(new Cell().add(new Paragraph(String.valueOf(summary.getQuantity()))).setTextAlignment(TextAlignment.CENTER));
-                table.addCell(new Cell().add(new Paragraph(component.getProcurementFlag() ? "是" : "否")).setTextAlignment(TextAlignment.CENTER));
-                table.addCell(new Cell().add(new Paragraph("")).setTextAlignment(TextAlignment.CENTER)); // 正常部件无备注
-                
-                index++;
+                Map<String, Object> row = new HashMap<>();
+                row.put("type", "normal");
+                row.put("containerName", summary.getContainer() != null ? 
+                    summary.getContainer().getName() : "未知箱包");
+                row.put("componentCode", component.getComponentCode());
+                row.put("componentName", component.getName());
+                row.put("quantity", summary.getQuantity());
+                row.put("procurementFlag", component.getProcurementFlag());
+                row.put("remark", "");
+                allRows.add(row);
             }
             
-            // 添加问题部件数据行
+            // 添加问题部件数据
             for (ContainerComponentsBreakdownProblems problem : problems) {
-                table.addCell(new Cell().add(new Paragraph(String.valueOf(index))).setTextAlignment(TextAlignment.CENTER));
-                table.addCell(new Cell().add(new Paragraph(problem.getContainer().getName()))); // 问题部件所属箱包名称
-                table.addCell(new Cell().add(new Paragraph(problem.getComponentNo())));
-                table.addCell(new Cell().add(new Paragraph("未知部件"))); // 问题部件没有名称
-                table.addCell(new Cell().add(new Paragraph(String.valueOf(problem.getQuantity()))).setTextAlignment(TextAlignment.CENTER));
-                table.addCell(new Cell().add(new Paragraph("未知")).setTextAlignment(TextAlignment.CENTER)); // 问题部件外购状态未知
-                table.addCell(new Cell().add(new Paragraph("工件不存在")).setTextAlignment(TextAlignment.CENTER)); // 问题部件备注
+                Map<String, Object> row = new HashMap<>();
+                row.put("type", "problem");
+                row.put("containerName", problem.getContainer().getName());
+                row.put("componentCode", problem.getComponentNo());
+                row.put("componentName", "未知部件");
+                row.put("quantity", problem.getQuantity());
+                row.put("procurementFlag", false);
+                row.put("remark", "未知部件");
+                allRows.add(row);
+            }
+            
+            // 按箱包名称排序
+            allRows.sort((row1, row2) -> {
+                String container1 = (String) row1.get("containerName");
+                String container2 = (String) row2.get("containerName");
+                return container1.compareTo(container2);
+            });
+            
+            // 添加排序后的数据行
+            int index = 1;
+            for (Map<String, Object> row : allRows) {
+                boolean isProblemRow = "problem".equals(row.get("type"));
+                
+                // 序号列
+                Cell indexCell = new Cell().add(new Paragraph(String.valueOf(index))).setTextAlignment(TextAlignment.CENTER);
+                if (isProblemRow) {
+                    indexCell.setBackgroundColor(ColorConstants.RED)
+                            .setFontColor(ColorConstants.WHITE)
+                            .setFont(boldFont);
+                }
+                table.addCell(indexCell);
+                
+                // 箱包名称列
+                Cell containerCell = new Cell().add(new Paragraph((String) row.get("containerName")));
+                if (isProblemRow) {
+                    containerCell.setBackgroundColor(ColorConstants.RED)
+                            .setFontColor(ColorConstants.WHITE)
+                            .setFont(boldFont);
+                }
+                table.addCell(containerCell);
+                
+                // 部件编号列
+                Cell codeCell = new Cell().add(new Paragraph((String) row.get("componentCode")));
+                if (isProblemRow) {
+                    codeCell.setBackgroundColor(ColorConstants.RED)
+                            .setFontColor(ColorConstants.WHITE)
+                            .setFont(boldFont);
+                }
+                table.addCell(codeCell);
+                
+                // 部件名称列
+                Cell nameCell = new Cell().add(new Paragraph((String) row.get("componentName")));
+                if (isProblemRow) {
+                    nameCell.setBackgroundColor(ColorConstants.RED)
+                            .setFontColor(ColorConstants.WHITE)
+                            .setFont(boldFont);
+                }
+                table.addCell(nameCell);
+                
+                // 数量列
+                Cell quantityCell = new Cell().add(new Paragraph(String.valueOf(row.get("quantity")))).setTextAlignment(TextAlignment.CENTER);
+                if (isProblemRow) {
+                    quantityCell.setBackgroundColor(ColorConstants.RED)
+                            .setFontColor(ColorConstants.WHITE)
+                            .setFont(boldFont);
+                }
+                table.addCell(quantityCell);
+                
+                // 是否外购列
+                String procurementText = "normal".equals(row.get("type")) ? 
+                    ((Boolean) row.get("procurementFlag") ? "是" : "否") : "未知";
+                Cell procurementCell = new Cell().add(new Paragraph(procurementText)).setTextAlignment(TextAlignment.CENTER);
+                if (isProblemRow) {
+                    procurementCell.setBackgroundColor(ColorConstants.RED)
+                            .setFontColor(ColorConstants.WHITE)
+                            .setFont(boldFont);
+                }
+                table.addCell(procurementCell);
+                
+                // 备注列
+                Cell remarkCell = new Cell().add(new Paragraph((String) row.get("remark"))).setTextAlignment(TextAlignment.CENTER);
+                if (isProblemRow) {
+                    remarkCell.setBackgroundColor(ColorConstants.RED)
+                            .setFontColor(ColorConstants.WHITE)
+                            .setFont(boldFont);
+                }
+                table.addCell(remarkCell);
                 
                 index++;
             }

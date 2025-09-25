@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/components/**").permitAll()
                 .requestMatchers("/breakdown/**").permitAll()
                 .requestMatchers("/api/breakdown/**").permitAll()
+                .requestMatchers("/cache/**").permitAll()
+                .requestMatchers("/api/cache/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/api/actuator/**").permitAll()
                 .requestMatchers("/error/**").permitAll()
