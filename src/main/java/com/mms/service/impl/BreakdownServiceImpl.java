@@ -187,15 +187,26 @@ public class BreakdownServiceImpl implements BreakdownService {
                     
                     // 添加子组件信息
                     List<Map<String, Object>> childComponents = new ArrayList<>();
-                    if (component.getChildren() != null && !component.getChildren().isEmpty()) {
-                        for (ComponentsRelationship relationship : component.getChildren()) {
-                            Components child = relationship.getChild();
-                            Map<String, Object> childInfo = new HashMap<>();
-                            childInfo.put("componentCode", child.getComponentCode());
-                            childInfo.put("name", child.getName());
-                            childInfo.put("quantity", relationship.getQuantity());
-                            childComponents.add(childInfo);
+                    try {
+                        // 使用Repository直接查询子组件关系，避免懒加载问题
+                        List<ComponentsRelationship> relationships = componentsRelationshipRepository.findByParentId(component.getId());
+                        if (relationships != null && !relationships.isEmpty()) {
+                            for (ComponentsRelationship relationship : relationships) {
+                                // 安全地获取子组件信息
+                                if (relationship.getChild() != null) {
+                                    Components child = relationship.getChild();
+                                    Map<String, Object> childInfo = new HashMap<>();
+                                    childInfo.put("componentCode", child.getComponentCode());
+                                    childInfo.put("name", child.getName());
+                                    childInfo.put("quantity", relationship.getQuantity());
+                                    childComponents.add(childInfo);
+                                } else {
+                                    log.warn("组件关系 {} 的子组件为null", relationship.getId());
+                                }
+                            }
                         }
+                    } catch (Exception e) {
+                        log.warn("获取组件 {} 的子组件时出错: {}", component.getComponentCode(), e.getMessage());
                     }
                     componentInfo.put("childComponents", childComponents);
                 } else {

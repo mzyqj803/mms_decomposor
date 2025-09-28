@@ -11,7 +11,7 @@ import java.util.List;
 @Entity
 @Table(name = "components")
 @EqualsAndHashCode(callSuper = true)
-@JsonIgnoreProperties({"specs", "processes", "children", "parents"})
+@JsonIgnoreProperties({"specs", "processes", "parents"})
 public class Components extends BaseEntity {
     
     @Column(name = "category_code", length = 50)

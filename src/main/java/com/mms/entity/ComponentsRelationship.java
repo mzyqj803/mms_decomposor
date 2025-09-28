@@ -13,12 +13,12 @@ import jakarta.persistence.*;
 public class ComponentsRelationship extends BaseEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id", nullable = false)
+    @JoinColumn(name = "Parent_ID", nullable = false)
     @JsonIgnore
     private Components parent;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "child_id", nullable = false)
+    @JoinColumn(name = "Child_ID", nullable = false)
     @JsonIgnore
     private Components child;
     

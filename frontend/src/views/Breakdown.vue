@@ -271,26 +271,23 @@
           <el-table-column label="查看子组件" width="150">
             <template #default="{ row }">
               <div v-if="row.childComponents && row.childComponents.length > 0" class="child-components">
-                <div 
+                <el-tooltip 
                   v-for="child in row.childComponents" 
                   :key="child.componentCode"
-                  class="child-component-item"
+                  :content="`${child.name} (数量: ${child.quantity})`" 
+                  placement="top"
+                  :show-after="500"
                 >
-                  <el-tooltip 
-                    :content="child.name" 
-                    placement="top"
-                    :show-after="500"
+                  <el-tag 
+                    type="primary" 
+                    size="small"
+                    @click="scrollToComponent(child.componentCode)"
+                    class="child-component-tag"
+                    effect="plain"
                   >
-                    <el-link 
-                      type="primary" 
-                      @click="scrollToComponent(child.componentCode)"
-                      class="child-component-link"
-                    >
-                      {{ child.componentCode }}
-                    </el-link>
-                  </el-tooltip>
-                  <span class="child-quantity">({{ child.quantity }})</span>
-                </div>
+                    {{ child.componentCode }}
+                  </el-tag>
+                </el-tooltip>
               </div>
               <span v-else class="no-children">-</span>
             </template>
@@ -1008,24 +1005,21 @@ const scrollToComponent = (componentCode) => {
 
 // 子组件相关样式
 .child-components {
-  .child-component-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  
+  .child-component-tag {
+    cursor: pointer;
+    transition: all 0.3s ease;
     
-    &:last-child {
-      margin-bottom: 0;
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     
-    .child-component-link {
-      font-size: 12px;
-      margin-right: 4px;
-    }
-    
-    .child-quantity {
-      font-size: 11px;
-      color: #909399;
-      font-weight: 500;
+    &:active {
+      transform: translateY(0);
     }
   }
 }

@@ -14,7 +14,7 @@ public interface ComponentsRelationshipRepository extends JpaRepository<Componen
     /**
      * 根据父组件ID查找所有子组件关系
      */
-    @Query("SELECT cr FROM ComponentsRelationship cr WHERE cr.parent.id = :parentId")
+    @Query("SELECT cr FROM ComponentsRelationship cr JOIN FETCH cr.child WHERE cr.parent.id = :parentId")
     List<ComponentsRelationship> findByParentId(@Param("parentId") Long parentId);
     
     /**
