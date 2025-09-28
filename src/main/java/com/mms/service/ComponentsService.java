@@ -1,8 +1,10 @@
 package com.mms.service;
 
 import com.mms.entity.Components;
+import com.mms.entity.ComponentsSpec;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import java.util.List;
 
 public interface ComponentsService {
     
@@ -40,4 +42,9 @@ public interface ComponentsService {
      * 获取零部件分类列表
      */
     java.util.List<String> getComponentCategories();
+    
+    /**
+     * 根据组件编号获取组件规格
+     */
+    List<ComponentsSpec> getComponentSpecsByCode(String componentCode);
 }

@@ -1,6 +1,7 @@
 package com.mms.controller;
 
 import com.mms.entity.Components;
+import com.mms.entity.ComponentsSpec;
 import com.mms.service.ComponentsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -87,5 +88,14 @@ public class ComponentsController {
     public ResponseEntity<List<String>> getComponentCategories() {
         List<String> categories = componentsService.getComponentCategories();
         return ResponseEntity.ok(categories);
+    }
+    
+    /**
+     * 根据组件编号获取组件规格
+     */
+    @GetMapping("/specs/{componentCode}")
+    public ResponseEntity<List<ComponentsSpec>> getComponentSpecs(@PathVariable String componentCode) {
+        List<ComponentsSpec> specs = componentsService.getComponentSpecsByCode(componentCode);
+        return ResponseEntity.ok(specs);
     }
 }

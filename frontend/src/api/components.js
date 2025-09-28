@@ -34,5 +34,10 @@ export const componentsApi = {
   // 获取零部件分类列表
   getComponentCategories() {
     return api.get('/components/categories')
+  },
+  
+  // 根据组件编号获取组件规格
+  getComponentSpecs(componentCode) {
+    return api.get(`/components/specs/${componentCode}`)
   }
 }

@@ -236,11 +236,14 @@
           </p>
         </div>
         
-        <el-table 
+        <el-table
+          ref="breakdownTable"
           :data="currentBreakdownData.allComponents" 
           stripe 
           style="margin-top: 20px"
           :row-class-name="getRowClassName"
+          @cell-mouse-enter="hoverRow"
+          @cell-mouse-leave="leaveRow"
         >
           <el-table-column prop="componentCode" label="部件编号" width="150" />
           <el-table-column prop="name" label="部件名称" min-width="200" />
@@ -265,6 +268,33 @@
               <span v-else class="normal-component-text">-</span>
             </template>
           </el-table-column>
+          <el-table-column label="查看子组件" width="150">
+            <template #default="{ row }">
+              <div v-if="row.childComponents && row.childComponents.length > 0" class="child-components">
+                <div 
+                  v-for="child in row.childComponents" 
+                  :key="child.componentCode"
+                  class="child-component-item"
+                >
+                  <el-tooltip 
+                    :content="child.name" 
+                    placement="top"
+                    :show-after="500"
+                  >
+                    <el-link 
+                      type="primary" 
+                      @click="scrollToComponent(child.componentCode)"
+                      class="child-component-link"
+                    >
+                      {{ child.componentCode }}
+                    </el-link>
+                  </el-tooltip>
+                  <span class="child-quantity">({{ child.quantity }})</span>
+                </div>
+              </div>
+              <span v-else class="no-children">-</span>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
       
@@ -273,6 +303,36 @@
         <el-button type="primary" @click="exportSingleBreakdown">导出此箱包分解表</el-button>
       </template>
     </el-dialog>
+
+    <!-- 组件规格弹窗 -->
+    <div 
+      v-if="showSpecTooltip && currentSpecComponent" 
+      class="spec-tooltip"
+      :style="tooltipStyle"
+      @mouseenter="onTooltipMouseEnter"
+      @mouseleave="onTooltipMouseLeave"
+    >
+      <div class="spec-tooltip-header">
+        <h4>{{ currentSpecComponent?.name || '未知组件' }}</h4>
+        <p class="component-code">{{ currentSpecComponent?.componentCode || '未知编号' }}</p>
+      </div>
+      <div class="spec-tooltip-content" v-if="componentSpecs.length > 0">
+        <div class="spec-list">
+          <div 
+            v-for="spec in componentSpecs" 
+            :key="spec.id" 
+            class="spec-item"
+          >
+            <span class="spec-code">{{ spec.specCode }}:</span>
+            <span class="spec-value">{{ spec.specValue }}</span>
+            <div v-if="spec.comments" class="spec-comments">{{ spec.comments }}</div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="no-specs">
+        暂无规格信息
+      </div>
+    </div>
   </div>
 </template>
 
@@ -282,6 +342,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { contractsApi } from '@/api/contracts'
 import { breakdownApi } from '@/api/breakdown'
+import { componentsApi } from '@/api/components'
 import '@/styles/problem-components.css'
 
 // 响应式数据
@@ -296,6 +357,17 @@ const breakdownResults = ref(null)
 const activeCollapse = ref([])
 const showBreakdownDialog = ref(false) // 控制分解表弹窗显示
 const currentBreakdownData = ref(null) // 当前要显示的分解数据
+
+// 表格引用
+const breakdownTable = ref(null)
+
+// 规格弹窗相关
+const showSpecTooltip = ref(false) // 控制规格弹窗显示
+const currentSpecComponent = ref(null) // 当前悬停的组件
+const componentSpecs = ref([]) // 组件规格列表
+const tooltipStyle = ref({}) // 弹窗样式
+const hoverTimer = ref(null) // 悬停定时器
+const autoCloseTimer = ref(null) // 自动关闭定时器
 
 // 加载状态
 const searchLoading = ref(false)
@@ -414,6 +486,11 @@ const breakdownAllContainers = async () => {
     
     ElMessage.success('合同工艺分解完成')
     breakdownResults.value = response
+    
+    // 更新所有箱包的状态为已分解
+    containers.value.forEach(container => {
+      container.status = 1
+    })
     
   } catch (error) {
     if (error !== 'cancel') {
@@ -621,6 +698,121 @@ const mergeBreakdownTables = async () => {
     mergeLoading.value = false
   }
 }
+
+// 关闭弹窗的函数
+const closeTooltip = () => {
+  console.log('关闭规格弹窗')
+  showSpecTooltip.value = false
+  currentSpecComponent.value = null
+  componentSpecs.value = []
+  
+  // 清除所有定时器
+  if (hoverTimer.value) {
+    clearTimeout(hoverTimer.value)
+    hoverTimer.value = null
+  }
+  if (autoCloseTimer.value) {
+    clearTimeout(autoCloseTimer.value)
+    autoCloseTimer.value = null
+  }
+}
+
+// 处理单元格悬停
+const hoverRow = (row, column, cell, event) => {
+  console.log('=== cell-mouse-enter 事件触发 ===')
+  console.log('鼠标悬停在单元格上:', row.componentCode, row.name)
+  
+  // 如果已经有弹窗显示，先关闭它
+  if (showSpecTooltip.value) {
+    closeTooltip()
+  }
+  
+  // 清除之前的定时器
+  if (hoverTimer.value) {
+    clearTimeout(hoverTimer.value)
+  }
+  
+  // 设置当前悬停的组件
+  currentSpecComponent.value = row
+  
+  // 设置定时器，2秒后显示规格弹窗
+  hoverTimer.value = setTimeout(async () => {
+    console.log('开始获取组件规格:', row.componentCode)
+    try {
+      // 获取组件规格
+      const response = await componentsApi.getComponentSpecs(row.componentCode)
+      console.log('获取到规格数据:', response)
+      componentSpecs.value = response || []
+      
+      // 计算弹窗位置 - 使用鼠标实际位置
+      const mouseX = event.clientX
+      const mouseY = event.clientY
+      
+      tooltipStyle.value = {
+        position: 'fixed',
+        left: `${mouseX + 10}px`,
+        top: `${mouseY - 10}px`,
+        zIndex: 9999
+      }
+      
+      console.log('弹窗位置:', tooltipStyle.value)
+      console.log('鼠标位置:', { x: mouseX, y: mouseY })
+      console.log('显示规格弹窗')
+      showSpecTooltip.value = true
+      
+      // 设置10秒后自动关闭弹窗
+      autoCloseTimer.value = setTimeout(() => {
+        console.log('10秒后自动关闭弹窗')
+        closeTooltip()
+      }, 10000)
+      
+    } catch (error) {
+      console.error('获取组件规格失败:', error)
+      componentSpecs.value = []
+      showSpecTooltip.value = true
+      
+      // 设置10秒后自动关闭弹窗
+      autoCloseTimer.value = setTimeout(() => {
+        console.log('10秒后自动关闭弹窗')
+        closeTooltip()
+      }, 10000)
+    }
+  }, 2000)
+}
+
+// 处理单元格离开
+const leaveRow = (row, column, cell, event) => {
+  console.log('=== cell-mouse-leave 事件触发 ===')
+  
+  // 清除悬停定时器
+  if (hoverTimer.value) {
+    clearTimeout(hoverTimer.value)
+    hoverTimer.value = null
+  }
+  
+  // 不立即关闭弹窗，让弹窗持续显示直到其他弹窗出现或10秒后
+  console.log('鼠标离开单元格，弹窗将继续显示')
+}
+
+// 处理弹窗鼠标进入
+const onTooltipMouseEnter = () => {
+  console.log('鼠标进入弹窗，暂停自动关闭')
+  // 清除自动关闭定时器，暂停自动关闭
+  if (autoCloseTimer.value) {
+    clearTimeout(autoCloseTimer.value)
+    autoCloseTimer.value = null
+  }
+}
+
+// 处理弹窗鼠标离开
+const onTooltipMouseLeave = () => {
+  console.log('鼠标离开弹窗，重新启动自动关闭')
+  // 重新启动10秒自动关闭定时器
+  autoCloseTimer.value = setTimeout(() => {
+    console.log('10秒后自动关闭弹窗')
+    closeTooltip()
+  }, 10000)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -697,6 +889,83 @@ const mergeBreakdownTables = async () => {
   
   &:last-child {
     margin-bottom: 0;
+  }
+}
+
+// 表格行悬停高亮样式
+:deep(.el-table__row:hover) {
+  background-color: #e69214 !important;
+  cursor: pointer;
+}
+
+:deep(.el-table__row:hover td) {
+  background-color: #e69214 !important;
+}
+
+// 规格弹窗样式
+.spec-tooltip {
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  min-width: 300px;
+  max-width: 400px;
+  
+  .spec-tooltip-header {
+    border-bottom: 1px solid #e4e7ed;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    
+    h4 {
+      margin: 0 0 4px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #303133;
+    }
+    
+    .component-code {
+      margin: 0;
+      font-size: 12px;
+      color: #909399;
+      font-family: monospace;
+    }
+  }
+  
+  .spec-tooltip-content {
+    .spec-list {
+      .spec-item {
+        margin-bottom: 8px;
+        
+        &:last-child {
+          margin-bottom: 0;
+        }
+        
+        .spec-code {
+          font-weight: 600;
+          color: #606266;
+          margin-right: 8px;
+        }
+        
+        .spec-value {
+          color: #303133;
+        }
+        
+        .spec-comments {
+          font-size: 12px;
+          color: #909399;
+          margin-top: 4px;
+          font-style: italic;
+        }
+      }
+    }
+  }
+  
+  .no-specs {
+    text-align: center;
+    color: #909399;
+    font-style: italic;
+    padding: 20px 0;
   }
 }
 </style>

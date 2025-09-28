@@ -21,4 +21,7 @@ public class ComponentsRelationship extends BaseEntity {
     @JoinColumn(name = "child_id", nullable = false)
     @JsonIgnore
     private Components child;
+    
+    @Column(name = "quantity")
+    private Integer quantity = 1; // 默认数量为1
 }

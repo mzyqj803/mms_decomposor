@@ -184,11 +184,26 @@ public class BreakdownServiceImpl implements BreakdownService {
                     componentInfo.put("procurementFlag", component.getProcurementFlag());
                     componentInfo.put("commonPartsFlag", component.getCommonPartsFlag());
                     componentInfo.put("remark", ""); // 正常组件无备注
+                    
+                    // 添加子组件信息
+                    List<Map<String, Object>> childComponents = new ArrayList<>();
+                    if (component.getChildren() != null && !component.getChildren().isEmpty()) {
+                        for (ComponentsRelationship relationship : component.getChildren()) {
+                            Components child = relationship.getChild();
+                            Map<String, Object> childInfo = new HashMap<>();
+                            childInfo.put("componentCode", child.getComponentCode());
+                            childInfo.put("name", child.getName());
+                            childInfo.put("quantity", relationship.getQuantity());
+                            childComponents.add(childInfo);
+                        }
+                    }
+                    componentInfo.put("childComponents", childComponents);
                 } else {
                     // 如果找不到匹配的组件，使用默认值并记录为问题部件
                     componentInfo.put("procurementFlag", false);
                     componentInfo.put("commonPartsFlag", false);
                     componentInfo.put("remark", "工件不存在"); // 问题组件备注
+                    componentInfo.put("childComponents", new ArrayList<>()); // 空子组件列表
                     String problem = String.format("部件编号 %s (%s) 在components表中找不到匹配项", 
                         componentCode, containerComponent.getComponentName());
                     problemComponents.add(problem);
@@ -392,8 +407,11 @@ public class BreakdownServiceImpl implements BreakdownService {
         for (ComponentsRelationship relation : childRelations) {
             Components childComponent = relation.getChild();
             
+            // 计算子组件数量：父组件数量 × 子组件配置表的数量
+            Integer childQuantity = containerComponent.getQuantity() * relation.getQuantity();
+            
             // 保存分解记录
-            saveBreakdownRecord(containerComponent, childComponent, containerComponent.getQuantity());
+            saveBreakdownRecord(containerComponent, childComponent, childQuantity);
             
             // 递归处理子部件的子部件
             processChildComponentsRecursively(childComponent, containerComponent, processedComponents);

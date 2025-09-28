@@ -18,6 +18,8 @@ services:
       - ./src/main/resources/sql/data_init/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./src/main/resources/sql/data_init/data_init.sql:/docker-entrypoint-initdb.d/02-data_init.sql
       - ./src/main/resources/sql/data_init/cleanup_duplicate_components_with_fk.sql:/docker-entrypoint-initdb.d/03-cleanup_duplicates.sql
+      - ./src/main/resources/sql/data_init/add_quantity_to_components_relationship.sql:/docker-entrypoint-initdb.d/04-add_quantity_field.sql
+      - ./src/main/resources/sql/data_init/update_components_relationship_quantity_from_spec.sql:/docker-entrypoint-initdb.d/05-update_quantity_from_spec.sql
     networks:
       - mms-network
 

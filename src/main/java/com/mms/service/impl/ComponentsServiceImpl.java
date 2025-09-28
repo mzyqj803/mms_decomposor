@@ -1,6 +1,7 @@
 package com.mms.service.impl;
 
 import com.mms.entity.Components;
+import com.mms.entity.ComponentsSpec;
 import com.mms.repository.ComponentsRepository;
 import com.mms.service.CacheService;
 import com.mms.service.ComponentsService;
@@ -23,6 +24,7 @@ public class ComponentsServiceImpl implements ComponentsService {
     private final CacheService cacheService;
     
     @Override
+    @SuppressWarnings("unchecked")
     public Page<Components> getComponents(String componentCode, String name, String categoryCode, Pageable pageable) {
         String cacheKey = String.format("components:%s:%s:%s:%d:%d", 
             componentCode, name, categoryCode, pageable.getPageNumber(), pageable.getPageSize());
@@ -133,6 +135,7 @@ public class ComponentsServiceImpl implements ComponentsService {
     }
     
     @Override
+    @SuppressWarnings("unchecked")
     public Page<Components> searchComponents(String keyword, Pageable pageable) {
         String cacheKey = String.format("components:search:%s:%d:%d", 
             keyword, pageable.getPageNumber(), pageable.getPageSize());
@@ -151,6 +154,7 @@ public class ComponentsServiceImpl implements ComponentsService {
     }
     
     @Override
+    @SuppressWarnings("unchecked")
     public List<String> getComponentCategories() {
         String cacheKey = "components:categories";
         
@@ -165,6 +169,29 @@ public class ComponentsServiceImpl implements ComponentsService {
         cacheService.set(cacheKey, categories, 30, TimeUnit.MINUTES);
         
         return categories;
+    }
+    
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<ComponentsSpec> getComponentSpecsByCode(String componentCode) {
+        String cacheKey = "component:specs:" + componentCode;
+        
+        List<ComponentsSpec> cachedSpecs = cacheService.get(cacheKey, List.class);
+        if (cachedSpecs != null) {
+            return cachedSpecs;
+        }
+        
+        // 根据组件编号查找组件
+        Components component = componentsRepository.findByComponentCode(componentCode)
+            .orElseThrow(() -> new RuntimeException("零部件不存在: " + componentCode));
+        
+        // 获取组件的规格信息
+        List<ComponentsSpec> specs = component.getSpecs();
+        
+        // 缓存10分钟
+        cacheService.set(cacheKey, specs, 10, TimeUnit.MINUTES);
+        
+        return specs;
     }
     
     private void clearComponentCache(Long componentId) {
