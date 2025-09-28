@@ -813,6 +813,43 @@ const onTooltipMouseLeave = () => {
     closeTooltip()
   }, 10000)
 }
+
+// 滚动到指定组件
+const scrollToComponent = (componentCode) => {
+  console.log('滚动到组件:', componentCode)
+  
+  // 查找表格中对应的行
+  const table = breakdownTable.value
+  if (!table) {
+    console.error('未找到表格引用')
+    return
+  }
+  
+  // 查找包含指定componentCode的行
+  const rows = table.$el.querySelectorAll('tbody tr')
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const componentCodeCell = row.querySelector('td:first-child')
+    if (componentCodeCell && componentCodeCell.textContent.trim() === componentCode) {
+      // 滚动到该行
+      row.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      })
+      
+      // 高亮该行
+      row.style.backgroundColor = '#e6f7ff'
+      setTimeout(() => {
+        row.style.backgroundColor = ''
+      }, 3000)
+      
+      console.log('已滚动到组件:', componentCode)
+      return
+    }
+  }
+  
+  console.warn('未找到组件:', componentCode)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -967,5 +1004,34 @@ const onTooltipMouseLeave = () => {
     font-style: italic;
     padding: 20px 0;
   }
+}
+
+// 子组件相关样式
+.child-components {
+  .child-component-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    .child-component-link {
+      font-size: 12px;
+      margin-right: 4px;
+    }
+    
+    .child-quantity {
+      font-size: 11px;
+      color: #909399;
+      font-weight: 500;
+    }
+  }
+}
+
+.no-children {
+  color: #c0c4cc;
+  font-style: italic;
 }
 </style>
