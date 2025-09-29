@@ -38,6 +38,7 @@ MMS制造管理系统是一个专为电梯制造行业设计的工艺分解和�
 - **Redisson 3.25.2** - Redis客户端
 - **Apache POI 5.2.5** - Excel文件处理
 - **iText 8.0.2** - PDF文件生成
+- **Apache Lucene 10.2.1** - 全文搜索引擎
 - **Lombok** - 代码简化
 - **Jackson** - JSON处理
 - **Maven 3.11.0** - 构建工具
@@ -126,6 +127,9 @@ MMS制造管理系统是一个专为电梯制造行业设计的工艺分解和�
 - ✅ 紧固件规格参数管理
 - ✅ 默认紧固件标记
 - ✅ 紧固件缓存优化
+- ✅ 紧固件相似度搜索（基于Lucene）
+- ✅ 全文搜索和TF-IDF算法
+- ✅ 索引管理和重建功能
 
 ### 12. 合同参数管理 ✅
 - ✅ 合同参数配置
@@ -170,12 +174,14 @@ mms_decomposor/
 │   │   ├── ContainersController.java   # 装箱单管理控制器
 │   │   ├── BreakdownController.java   # 工艺分解控制器
 │   │   ├── FastenerWarehouseController.java # 紧固件仓库控制器
+│   │   ├── FastenerSimilarityController.java # 紧固件相似度搜索控制器
 │   │   ├── ContractParametersController.java # 合同参数控制器
 │   │   ├── ContainerUploadController.java # 装箱单上传控制器
 │   │   ├── ContainerPreviewController.java # 装箱单预览控制器
 │   │   └── CacheTestController.java    # 缓存测试控制器
 │   ├── dto/                           # 数据传输对象
-│   │   └── ContainerDTO.java          # 装箱单DTO
+│   │   ├── ContainerDTO.java          # 装箱单DTO
+│   │   └── FastenerSimilarityResult.java # 紧固件相似度结果DTO
 │   ├── entity/                         # 实体类
 │   │   ├── BaseEntity.java            # 基础实体类
 │   │   ├── Components.java            # 零部件实体
@@ -197,6 +203,7 @@ mms_decomposor/
 │       ├── ContainersService.java     # 装箱单服务
 │       ├── BreakdownService.java      # 工艺分解服务
 │       ├── FastenerWarehouseService.java # 紧固件仓库服务
+│       ├── FastenerLuceneIndexService.java # 紧固件Lucene索引服务
 │       ├── ComponentCacheService.java # 零部件缓存服务
 │       ├── ContainerUploadService.java # 装箱单上传服务
 │       └── impl/                      # 服务实现
@@ -448,6 +455,12 @@ npm run dev
 - `POST /fastener-warehouse` - 创建紧固件
 - `PUT /fastener-warehouse/{id}` - 更新紧固件
 - `DELETE /fastener-warehouse/{id}` - 删除紧固件
+
+### 紧固件相似度搜索接口
+- `GET /fastener-similarity/search` - 根据查询文本搜索相似紧固件
+- `GET /fastener-similarity/search-by-id/{id}` - 根据紧固件ID搜索相似紧固件
+- `POST /fastener-similarity/rebuild-index` - 重新构建Lucene索引
+- `GET /fastener-similarity/index-status` - 获取索引状态信息
 
 ### 装箱单上传和预览接口
 - `POST /containers/upload` - 上传Excel装箱单文件
