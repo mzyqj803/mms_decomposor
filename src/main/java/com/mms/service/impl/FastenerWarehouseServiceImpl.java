@@ -290,6 +290,12 @@ public class FastenerWarehouseServiceImpl implements FastenerWarehouseService {
         return levels;
     }
     
+    @Override
+    public List<FastenerWarehouse> getAllFasteners() {
+        // 直接从数据库获取，不使用缓存以避免类型转换问题
+        return fastenerRepository.findAll();
+    }
+    
     private void clearFastenerCache(Long fastenerId) {
         cacheService.delete("fastener_warehouse:" + fastenerId);
     }

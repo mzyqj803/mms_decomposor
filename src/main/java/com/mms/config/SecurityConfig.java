@@ -42,6 +42,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/breakdown/**").permitAll()
                 .requestMatchers("/fastener-warehouse/**").permitAll()
                 .requestMatchers("/api/fastener-warehouse/**").permitAll()
+                .requestMatchers("/api/fastener-similarity/**").permitAll()
+                .requestMatchers("/fastener-similarity/**").permitAll()
                 .requestMatchers("/cache/**").permitAll()
                 .requestMatchers("/api/cache/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()

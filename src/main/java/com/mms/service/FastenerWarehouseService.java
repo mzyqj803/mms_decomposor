@@ -74,4 +74,9 @@ public interface FastenerWarehouseService {
      * 获取所有等级列表
      */
     List<String> getLevels();
+    
+    /**
+     * 获取所有紧固件（用于索引构建）
+     */
+    List<FastenerWarehouse> getAllFasteners();
 }

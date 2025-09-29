@@ -20,6 +20,7 @@ services:
       - ./src/main/resources/sql/data_init/cleanup_duplicate_components_with_fk.sql:/docker-entrypoint-initdb.d/03-cleanup_duplicates.sql
       - ./src/main/resources/sql/data_init/add_quantity_to_components_relationship.sql:/docker-entrypoint-initdb.d/04-add_quantity_field.sql
       - ./src/main/resources/sql/data_init/update_components_relationship_quantity_from_spec.sql:/docker-entrypoint-initdb.d/05-update_quantity_from_spec.sql
+      - ./src/main/resources/sql/data_init/fastener_warehouse_data.sql:/docker-entrypoint-initdb.d/06-fastener_warehouse_data.sql
     networks:
       - mms-network
 
