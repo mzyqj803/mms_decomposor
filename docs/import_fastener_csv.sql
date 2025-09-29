@@ -40,3 +40,4 @@ INSERT INTO fastener_warehouse (
 -- 验证导入结果
 SELECT COUNT(*) as total_records FROM fastener_warehouse;
 SELECT * FROM fastener_warehouse LIMIT 10;
+

@@ -1,7 +1,7 @@
 services:
   # MariaDB数据库
   mariadb:
-    image: mariadb:10.3
+    image: mariadb:11
     container_name: mms-mariadb
     environment:
       MYSQL_ROOT_PASSWORD: password
@@ -21,6 +21,7 @@ services:
       - ./src/main/resources/sql/data_init/add_quantity_to_components_relationship.sql:/docker-entrypoint-initdb.d/04-add_quantity_field.sql
       - ./src/main/resources/sql/data_init/update_components_relationship_quantity_from_spec.sql:/docker-entrypoint-initdb.d/05-update_quantity_from_spec.sql
       - ./src/main/resources/sql/data_init/fastener_warehouse_data.sql:/docker-entrypoint-initdb.d/06-fastener_warehouse_data.sql
+      - ./src/main/resources/sql/data_init/create_component_fastener_views.sql:/docker-entrypoint-initdb.d/07-create_component_fastener_views.sql
     networks:
       - mms-network
 
