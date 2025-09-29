@@ -16,14 +16,17 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 @Configuration
 public class RedisConfig {
     
-    @Value("${redisson.address}")
-    private String redissonAddress;
+    @Value("${spring.data.redis.host}")
+    private String redisHost;
     
-    @Value("${redisson.password:}")
-    private String redissonPassword;
+    @Value("${spring.data.redis.port}")
+    private int redisPort;
     
-    @Value("${redisson.database:0}")
-    private int redissonDatabase;
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+    
+    @Value("${spring.data.redis.database:0}")
+    private int redisDatabase;
     
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
@@ -48,9 +51,9 @@ public class RedisConfig {
     public RedissonClient redissonClient() {
         Config config = new Config();
         config.useSingleServer()
-                .setAddress(redissonAddress)
-                .setPassword(redissonPassword.isEmpty() ? null : redissonPassword)
-                .setDatabase(redissonDatabase);
+                .setAddress("redis://" + redisHost + ":" + redisPort)
+                .setPassword(redisPassword.isEmpty() ? null : redisPassword)
+                .setDatabase(redisDatabase);
         
         return Redisson.create(config);
     }

@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,7 @@ public class ComponentCacheServiceImpl implements ComponentCacheService {
     private static final String CACHE_KEY_PREFIX = "component:";
     
     @Override
+    @Transactional(readOnly = true)
     public int initializeCache() {
         log.info("开始初始化零部件缓存...");
         
@@ -45,8 +47,22 @@ public class ComponentCacheServiceImpl implements ComponentCacheService {
             int cachedCount = 0;
             for (Components component : allComponents) {
                 try {
+                    // 创建一个简化的组件对象，只包含基本字段，避免懒加载问题
+                    ComponentForCache cacheComponent = new ComponentForCache();
+                    cacheComponent.setId(component.getId());
+                    cacheComponent.setCategoryCode(component.getCategoryCode());
+                    cacheComponent.setComponentCode(component.getComponentCode());
+                    cacheComponent.setName(component.getName());
+                    cacheComponent.setComment(component.getComment());
+                    cacheComponent.setProcurementFlag(component.getProcurementFlag());
+                    cacheComponent.setCommonPartsFlag(component.getCommonPartsFlag());
+                    cacheComponent.setEntryTs(component.getEntryTs());
+                    cacheComponent.setEntryUser(component.getEntryUser());
+                    cacheComponent.setLastUpdateTs(component.getLastUpdateTs());
+                    cacheComponent.setLastUpdateUser(component.getLastUpdateUser());
+                    
                     // 将零部件转换为JSON字符串
-                    String componentJson = objectMapper.writeValueAsString(component);
+                    String componentJson = objectMapper.writeValueAsString(cacheComponent);
                     
                     // 存储到Redis，永不过期
                     String cacheKey = CACHE_KEY_PREFIX + component.getComponentCode();
@@ -154,5 +170,56 @@ public class ComponentCacheServiceImpl implements ComponentCacheService {
             log.error("获取缓存大小失败: {}", e.getMessage(), e);
             return 0;
         }
+    }
+    
+    /**
+     * 用于缓存的简化组件类，避免懒加载问题
+     */
+    private static class ComponentForCache {
+        private Long id;
+        private String categoryCode;
+        private String componentCode;
+        private String name;
+        private String comment;
+        private Boolean procurementFlag;
+        private Boolean commonPartsFlag;
+        private java.time.LocalDateTime entryTs;
+        private String entryUser;
+        private java.time.LocalDateTime lastUpdateTs;
+        private String lastUpdateUser;
+        
+        // Getters and Setters
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        
+        public String getCategoryCode() { return categoryCode; }
+        public void setCategoryCode(String categoryCode) { this.categoryCode = categoryCode; }
+        
+        public String getComponentCode() { return componentCode; }
+        public void setComponentCode(String componentCode) { this.componentCode = componentCode; }
+        
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        
+        public String getComment() { return comment; }
+        public void setComment(String comment) { this.comment = comment; }
+        
+        public Boolean getProcurementFlag() { return procurementFlag; }
+        public void setProcurementFlag(Boolean procurementFlag) { this.procurementFlag = procurementFlag; }
+        
+        public Boolean getCommonPartsFlag() { return commonPartsFlag; }
+        public void setCommonPartsFlag(Boolean commonPartsFlag) { this.commonPartsFlag = commonPartsFlag; }
+        
+        public java.time.LocalDateTime getEntryTs() { return entryTs; }
+        public void setEntryTs(java.time.LocalDateTime entryTs) { this.entryTs = entryTs; }
+        
+        public String getEntryUser() { return entryUser; }
+        public void setEntryUser(String entryUser) { this.entryUser = entryUser; }
+        
+        public java.time.LocalDateTime getLastUpdateTs() { return lastUpdateTs; }
+        public void setLastUpdateTs(java.time.LocalDateTime lastUpdateTs) { this.lastUpdateTs = lastUpdateTs; }
+        
+        public String getLastUpdateUser() { return lastUpdateUser; }
+        public void setLastUpdateUser(String lastUpdateUser) { this.lastUpdateUser = lastUpdateUser; }
     }
 }
