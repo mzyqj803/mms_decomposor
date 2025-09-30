@@ -42,3 +42,4 @@ build/
 /frontend/dist/
 /frontend/node_modules
 *.log
+/.idea/inspectionProfiles/Project_Default.xml
