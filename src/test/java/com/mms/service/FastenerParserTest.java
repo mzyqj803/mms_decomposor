@@ -86,8 +86,11 @@ public class FastenerParserTest {
         // 测试非GB格式：GEL4Z035001
         FastenerParseResult result = parser.parse("GEL4Z035001", "M6拉铆螺母");
         
-        assertFalse(result.isSuccess());
-        assertEquals("未找到GB或GB/T开头的产品代码", result.getErrorMessage());
+        assertTrue(result.isSuccess());
+        assertEquals("GEL4Z035001", result.getProductCode());
+        assertEquals("M6", result.getSpecs());
+        assertNull(result.getLevel());
+        assertNull(result.getSurfaceTreatment());
     }
     
     @Test
@@ -109,14 +112,14 @@ public class FastenerParserTest {
     }
     
     @Test
-    void testParseSimpleFormat() {
-        // 测试简单格式：GB6170-M6-8Z
-        FastenerParseResult result = parser.parse("GB6170-M6-8Z", "螺母");
+    void testParseOtherNonGBFormat() {
+        // 测试其他非GB格式：ABC123
+        FastenerParseResult result = parser.parse("ABC123", "测试零件");
         
         assertTrue(result.isSuccess());
-        assertEquals("GB6170", result.getProductCode());
-        assertEquals("M6", result.getSpecs());
-        assertEquals("8", result.getLevel());
-        assertEquals("镀锌等", result.getSurfaceTreatment());
+        assertEquals("ABC123", result.getProductCode());
+        assertNull(result.getSpecs());
+        assertNull(result.getLevel());
+        assertNull(result.getSurfaceTreatment());
     }
 }

@@ -44,7 +44,8 @@ public class FastenerParser {
             // 1. 提取GB产品代码
             String productCode = extractProductCode(combinedText);
             if (productCode == null) {
-                return FastenerParseResult.failure(componentCode, name, "未找到GB或GB/T开头的产品代码");
+                // 如果无法找到GB产品代码，将整个component_code作为product_code
+                productCode = componentCode.trim();
             }
             
             // 2. 提取M规格
