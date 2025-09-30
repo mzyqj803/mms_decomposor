@@ -70,3 +70,4 @@ public class FastenerSimilarityResult {
     private Boolean defaultFlag;
 }
 
+

@@ -41,3 +41,4 @@ INSERT INTO fastener_warehouse (
 SELECT COUNT(*) as total_records FROM fastener_warehouse;
 SELECT * FROM fastener_warehouse LIMIT 10;
 
+
