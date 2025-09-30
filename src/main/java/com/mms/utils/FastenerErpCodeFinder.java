@@ -159,6 +159,7 @@ public class FastenerErpCodeFinder {
         private String matchedSpecs;
         private String matchedLevel;
         private String matchedSurfaceTreatment;
+        private boolean fastenerComponent = true; // 默认为true，表示是紧固件组件
         
         private ErpCodeResult() {}
         
@@ -190,6 +191,7 @@ public class FastenerErpCodeFinder {
             result.name = name;
             result.success = false;
             result.errorMessage = "不是紧固件，跳过";
+            result.fastenerComponent = false; // 标记为非紧固件组件
             return result;
         }
         
@@ -230,5 +232,6 @@ public class FastenerErpCodeFinder {
         public String getMatchedSpecs() { return matchedSpecs; }
         public String getMatchedLevel() { return matchedLevel; }
         public String getMatchedSurfaceTreatment() { return matchedSurfaceTreatment; }
+        public boolean isFastenerComponent() { return fastenerComponent; }
     }
 }

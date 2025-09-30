@@ -67,6 +67,7 @@ public class FastenerErpCodeFinderTest {
         assertEquals("不是紧固件，跳过", result.getErrorMessage());
         assertEquals(componentId, result.getComponentId());
         assertEquals(componentCode, result.getComponentCode());
+        assertFalse(result.isFastenerComponent()); // 验证不是紧固件组件
         assertEquals(name, result.getName());
     }
     
@@ -131,6 +132,7 @@ public class FastenerErpCodeFinderTest {
         assertEquals("M6*20", result.getMatchedSpecs());
         assertEquals("8.8", result.getMatchedLevel());
         assertEquals("镀锌等", result.getMatchedSurfaceTreatment());
+        assertTrue(result.isFastenerComponent()); // 验证是紧固件组件
     }
     
     @Test
@@ -157,6 +159,7 @@ public class FastenerErpCodeFinderTest {
         assertEquals("M8*25", result.getMatchedSpecs());
         assertEquals("10.9", result.getMatchedLevel());
         assertNull(result.getMatchedSurfaceTreatment());
+        assertTrue(result.isFastenerComponent()); // 验证是紧固件组件
     }
     
     @Test
@@ -195,5 +198,6 @@ public class FastenerErpCodeFinderTest {
         
         assertTrue(result.isSuccess());
         assertEquals("07.0100.00001", result.getErpCode()); // 应该返回第一个匹配的
+        assertTrue(result.isFastenerComponent()); // 验证是紧固件组件
     }
 }

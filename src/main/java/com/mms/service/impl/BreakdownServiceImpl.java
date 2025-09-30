@@ -4,6 +4,8 @@ import com.mms.entity.*;
 import com.mms.repository.*;
 import com.mms.service.BreakdownService;
 import com.mms.service.ComponentCacheService;
+import com.mms.service.ContainerComponentsBreakdownErpService;
+import com.mms.utils.FastenerErpCodeFinder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +39,8 @@ public class BreakdownServiceImpl implements BreakdownService {
     private final ContainerComponentsBreakdownProblemsRepository problemsRepository;
     private final ContractsRepository contractsRepository;
     private final ComponentCacheService componentCacheService;
+    private final ContainerComponentsBreakdownErpService breakdownErpService;
+    private final FastenerErpCodeFinder fastenerErpCodeFinder;
     private final ObjectMapper objectMapper;
     
     @Override
@@ -439,7 +443,67 @@ public class BreakdownServiceImpl implements BreakdownService {
         breakdown.setContainer(containerComponent.getContainer());
         breakdown.setQuantity(quantity);
         
-        breakdownRepository.save(breakdown);
+        ContainerComponentsBreakdown savedBreakdown = breakdownRepository.save(breakdown);
+        
+        // 调用FastenerErpCodeFinder查找ERP代码
+        try {
+            FastenerErpCodeFinder.ErpCodeResult erpResult = fastenerErpCodeFinder.findErpCode(
+                    subComponent.getId(), 
+                    subComponent.getComponentCode(), 
+                    subComponent.getName()
+            );
+            
+            // 如果isFastenerComponent == false，直接跳过
+            if (!erpResult.isFastenerComponent()) {
+                log.debug("组件不是紧固件，跳过ERP代码查找: componentId={}, componentCode={}", 
+                        subComponent.getId(), subComponent.getComponentCode());
+                return;
+            }
+            
+            // 创建ERP代码记录
+            ContainerComponentsBreakdownErp erpRecord = new ContainerComponentsBreakdownErp();
+            erpRecord.setBreakdown(savedBreakdown);
+            
+            if (erpResult.isSuccess()) {
+                // 成功匹配，写入ERP代码
+                erpRecord.setErpCode(erpResult.getErpCode());
+                erpRecord.setComments(String.format("自动生成 - 匹配产品代码: %s, 规格: %s, 等级: %s, 表面处理: %s",
+                        erpResult.getMatchedProductCode(),
+                        erpResult.getMatchedSpecs(),
+                        erpResult.getMatchedLevel(),
+                        erpResult.getMatchedSurfaceTreatment()));
+                
+                log.info("成功生成ERP代码记录: breakdownId={}, componentId={}, erpCode={}", 
+                        savedBreakdown.getId(), subComponent.getId(), erpResult.getErpCode());
+            } else {
+                // 查找失败，标记为未知物料
+                erpRecord.setErpCode(null);
+                erpRecord.setComments("未知物料: " + erpResult.getErrorMessage());
+                
+                log.warn("ERP代码查找失败: breakdownId={}, componentId={}, error={}", 
+                        savedBreakdown.getId(), subComponent.getId(), erpResult.getErrorMessage());
+            }
+            
+            // 保存ERP代码记录
+            breakdownErpService.create(erpRecord);
+            
+        } catch (Exception e) {
+            log.error("ERP代码查找过程中发生异常: breakdownId={}, componentId={}, error={}", 
+                    savedBreakdown.getId(), subComponent.getId(), e.getMessage(), e);
+            
+            // 即使发生异常，也创建一个记录用于标记
+            ContainerComponentsBreakdownErp erpRecord = new ContainerComponentsBreakdownErp();
+            erpRecord.setBreakdown(savedBreakdown);
+            erpRecord.setErpCode(null);
+            erpRecord.setComments("ERP代码查找异常: " + e.getMessage());
+            
+            try {
+                breakdownErpService.create(erpRecord);
+            } catch (Exception ex) {
+                log.error("保存ERP代码异常记录失败: breakdownId={}, error={}", 
+                        savedBreakdown.getId(), ex.getMessage(), ex);
+            }
+        }
     }
     
     /**
