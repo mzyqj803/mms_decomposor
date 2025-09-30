@@ -41,5 +41,5 @@ build/
 
 /frontend/dist/
 /frontend/node_modules
-*.log
+*.log 吧。  xzc
 /.idea/inspectionProfiles/Project_Default.xml
