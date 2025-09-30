@@ -130,6 +130,9 @@ MMS制造管理系统是一个专为电梯制造行业设计的工艺分解和�
 - ✅ 紧固件相似度搜索（基于Lucene）
 - ✅ 全文搜索和TF-IDF算法
 - ✅ 索引管理和重建功能
+- ✅ 紧固件ERP代码查找工具类
+- ✅ Redis缓存服务（缓存key为productCode）
+- ✅ 渐进式匹配算法（productCode → specs → level → surfaceTreatment）
 
 ### 12. 合同参数管理 ✅
 - ✅ 合同参数配置
@@ -149,7 +152,16 @@ MMS制造管理系统是一个专为电梯制造行业设计的工艺分解和�
 - ✅ 缓存性能监控
 - ✅ 缓存清理功能
 
-### 15. 数据接口 ✅
+### 15. 紧固件ERP代码查找 ✅
+- ✅ FastenerErpCodeFinder工具类
+- ✅ 紧固件类型检查（产线装配/仓库装箱）
+- ✅ FastenerParser解析器集成
+- ✅ 渐进式匹配算法
+- ✅ Redis缓存优化
+- ✅ 完整的错误处理机制
+- ✅ 单元测试覆盖
+
+### 16. 数据接口 ✅
 - ✅ RESTful API
 - ✅ 分页和搜索支持
 - ✅ 数据验证
@@ -178,10 +190,12 @@ mms_decomposor/
 │   │   ├── ContractParametersController.java # 合同参数控制器
 │   │   ├── ContainerUploadController.java # 装箱单上传控制器
 │   │   ├── ContainerPreviewController.java # 装箱单预览控制器
-│   │   └── CacheTestController.java    # 缓存测试控制器
+│   │   ├── CacheTestController.java    # 缓存测试控制器
+│   │   └── FastenerCacheController.java # 紧固件缓存管理控制器
 │   ├── dto/                           # 数据传输对象
 │   │   ├── ContainerDTO.java          # 装箱单DTO
-│   │   └── FastenerSimilarityResult.java # 紧固件相似度结果DTO
+│   │   ├── FastenerSimilarityResult.java # 紧固件相似度结果DTO
+│   │   └── FastenerParseResult.java   # 紧固件解析结果DTO
 │   ├── entity/                         # 实体类
 │   │   ├── BaseEntity.java            # 基础实体类
 │   │   ├── Components.java            # 零部件实体
@@ -206,6 +220,8 @@ mms_decomposor/
 │       ├── FastenerLuceneIndexService.java # 紧固件Lucene索引服务
 │       ├── ComponentCacheService.java # 零部件缓存服务
 │       ├── ContainerUploadService.java # 装箱单上传服务
+│       ├── FastenerWarehouseCacheService.java # 紧固件仓库缓存服务
+│       └── FastenerErpCodeService.java # 紧固件ERP代码查找服务
 │       └── impl/                      # 服务实现
 │           ├── ContractsServiceImpl.java
 │           ├── ComponentsServiceImpl.java
@@ -213,7 +229,12 @@ mms_decomposor/
 │           ├── BreakdownServiceImpl.java
 │           ├── FastenerWarehouseServiceImpl.java
 │           ├── ComponentCacheServiceImpl.java
-│           └── ContainerUploadServiceImpl.java
+│           ├── ContainerUploadServiceImpl.java
+│           └── FastenerWarehouseCacheServiceImpl.java # 紧固件仓库缓存服务实现
+│   ├── utils/                          # 工具类
+│   │   ├── FastenerParser.java         # 紧固件解析器
+│   │   ├── FastenerErpCodeFinder.java  # 紧固件ERP代码查找工具类
+│   │   └── FastenerErpCodeDemo.java   # 紧固件ERP代码查找演示程序
 ├── src/main/resources/
 │   ├── application.yml                 # 应用配置
 │   └── sql/
@@ -462,6 +483,14 @@ npm run dev
 - `POST /fastener-similarity/rebuild-index` - 重新构建Lucene索引
 - `GET /fastener-similarity/index-status` - 获取索引状态信息
 
+### 紧固件缓存管理接口
+- `GET /api/fastener-cache/status` - 检查紧固件缓存状态
+- `POST /api/fastener-cache/initialize` - 初始化紧固件缓存
+- `DELETE /api/fastener-cache/clear` - 清空紧固件缓存
+- `POST /api/fastener-cache/reload/{productCode}` - 重新加载指定产品代码缓存
+- `GET /api/fastener-cache/test/{productCode}` - 测试从缓存获取紧固件
+- `GET /api/fastener-cache/stats` - 获取缓存统计信息
+
 ### 装箱单上传和预览接口
 - `POST /containers/upload` - 上传Excel装箱单文件
 - `GET /containers/{id}/preview` - 预览装箱单内容
@@ -541,6 +570,8 @@ docker-compose up -d
 - **[数据模型设计](docs/Data%20Modeling.md)** - 数据库设计和实体关系
 - **[需求规格说明](docs/Spec.md)** - 业务需求和功能规格
 - **[升级指南](UPGRADE_GUIDE.md)** - Spring Boot 3.2.0 升级说明
+- **[紧固件ERP代码查找工具类文档](docs/FastenerErpCodeFinder.md)** - 工具类使用说明
+- **[紧固件仓库Redis缓存服务文档](docs/FastenerWarehouseCacheService_Implementation_Summary.md)** - 缓存服务实现说明
 
 ### 部署文档
 - **[Windows环境配置](WINDOWS_SETUP.md)** - Windows环境详细配置说明
@@ -616,6 +647,9 @@ npm run test
 - **合同参数**: 合同参数配置和管理
 - **装箱单预览**: Excel文件内容预览功能
 - **缓存测试**: Redis缓存功能测试接口
+- **紧固件ERP代码查找**: FastenerErpCodeFinder工具类
+- **紧固件缓存服务**: Redis缓存优化（缓存key为productCode）
+- **渐进式匹配算法**: productCode → specs → level → surfaceTreatment
 - **实用脚本**: 完整的开发和运维脚本
 
 #### 开发中功能 🔄

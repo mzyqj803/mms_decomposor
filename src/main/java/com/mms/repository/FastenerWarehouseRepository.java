@@ -20,6 +20,11 @@ public interface FastenerWarehouseRepository extends JpaRepository<FastenerWareh
     Optional<FastenerWarehouse> findByProductCode(String productCode);
     
     /**
+     * 根据产品代码模糊查找紧固件
+     */
+    List<FastenerWarehouse> findByProductCodeContaining(String productCode);
+    
+    /**
      * 根据ERP代码查找紧固件
      */
     Optional<FastenerWarehouse> findByErpCode(String erpCode);
