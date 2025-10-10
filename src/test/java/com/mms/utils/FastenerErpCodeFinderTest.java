@@ -58,8 +58,8 @@ public class FastenerErpCodeFinderTest {
         String componentCode = "FT001";
         String name = "非紧固件";
         
-        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(false);
-        when(componentFastenerRepository.isUnassembledFastener(componentId)).thenReturn(false);
+        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(0);
+        when(componentFastenerRepository.isUnassembledFastener(componentId)).thenReturn(0);
         
         ErpCodeResult result = finder.findErpCode(componentId, componentCode, name);
         
@@ -78,8 +78,9 @@ public class FastenerErpCodeFinderTest {
         String componentCode = "INVALID_CODE";
         String name = "无效代码";
         
-        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(true);
+        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(1);
         
+        // 注意：现在parse方法会接收到标准化后的参数
         FastenerParseResult parseResult = FastenerParseResult.failure(componentCode, name, "解析失败");
         when(fastenerParser.parse(componentCode, name)).thenReturn(parseResult);
         
@@ -96,10 +97,10 @@ public class FastenerErpCodeFinderTest {
         String componentCode = "GB9999-M6*20-8.8Z";
         String name = "螺栓";
         
-        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(true);
+        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(1);
         
-        FastenerParseResult parseResult = FastenerParseResult.success(componentCode, name, "GB9999", "M6*20", "8.8", "镀锌等");
-        when(fastenerParser.parse(componentCode, name)).thenReturn(parseResult);
+        FastenerParseResult parseResult = FastenerParseResult.success(componentCode, name, "GB9999", "M6x20", "8.8", "镀锌等");
+        when(fastenerParser.parse("GB9999-M6x20-8.8Z", name)).thenReturn(parseResult);
         when(fastenerWarehouseCacheService.getFastenersByProductCodeContaining("GB9999")).thenReturn(Collections.emptyList());
         
         ErpCodeResult result = finder.findErpCode(componentId, componentCode, name);
@@ -115,10 +116,10 @@ public class FastenerErpCodeFinderTest {
         String componentCode = "GB5783-M6*20-8.8Z";
         String name = "螺栓";
         
-        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(true);
+        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(1);
         
-        FastenerParseResult parseResult = FastenerParseResult.success(componentCode, name, "GB5783", "M6*20", "8.8", "镀锌等");
-        when(fastenerParser.parse(componentCode, name)).thenReturn(parseResult);
+        FastenerParseResult parseResult = FastenerParseResult.success(componentCode, name, "GB5783", "M6x20", "8.8", "镀锌等");
+        when(fastenerParser.parse("GB5783-M6x20-8.8Z", name)).thenReturn(parseResult);
         
         // 模拟缓存查询结果
         List<FastenerWarehouse> productCodeMatches = Arrays.asList(sampleFastener);
@@ -129,7 +130,7 @@ public class FastenerErpCodeFinderTest {
         assertTrue(result.isSuccess());
         assertEquals("07.0100.00001", result.getErpCode());
         assertEquals("GB5783", result.getMatchedProductCode());
-        assertEquals("M6*20", result.getMatchedSpecs());
+        assertEquals("M6x20", result.getMatchedSpecs());
         assertEquals("8.8", result.getMatchedLevel());
         assertEquals("镀锌等", result.getMatchedSurfaceTreatment());
         assertTrue(result.isFastenerComponent()); // 验证是紧固件组件
@@ -142,10 +143,10 @@ public class FastenerErpCodeFinderTest {
         String componentCode = "GB5783-M8*25-10.9";
         String name = "螺栓";
         
-        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(true);
+        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(1);
         
-        FastenerParseResult parseResult = FastenerParseResult.success(componentCode, name, "GB5783", "M8*25", "10.9", null);
-        when(fastenerParser.parse(componentCode, name)).thenReturn(parseResult);
+        FastenerParseResult parseResult = FastenerParseResult.success(componentCode, name, "GB5783", "M8x25", "10.9", null);
+        when(fastenerParser.parse("GB5783-M8x25-10.9", name)).thenReturn(parseResult);
         
         // 模拟缓存查询结果 - 只有productCode匹配
         List<FastenerWarehouse> productCodeMatches = Arrays.asList(sampleFastener);
@@ -156,7 +157,7 @@ public class FastenerErpCodeFinderTest {
         assertTrue(result.isSuccess());
         assertEquals("07.0100.00001", result.getErpCode());
         assertEquals("GB5783", result.getMatchedProductCode());
-        assertEquals("M8*25", result.getMatchedSpecs());
+        assertEquals("M8x25", result.getMatchedSpecs());
         assertEquals("10.9", result.getMatchedLevel());
         assertNull(result.getMatchedSurfaceTreatment());
         assertTrue(result.isFastenerComponent()); // 验证是紧固件组件
@@ -169,10 +170,10 @@ public class FastenerErpCodeFinderTest {
         String componentCode = "GB5783-M6*20-8.8Z";
         String name = "螺栓";
         
-        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(true);
+        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(1);
         
-        FastenerParseResult parseResult = FastenerParseResult.success(componentCode, name, "GB5783", "M6*20", "8.8", "镀锌等");
-        when(fastenerParser.parse(componentCode, name)).thenReturn(parseResult);
+        FastenerParseResult parseResult = FastenerParseResult.success(componentCode, name, "GB5783", "M6x20", "8.8", "镀锌等");
+        when(fastenerParser.parse("GB5783-M6x20-8.8Z", name)).thenReturn(parseResult);
         
         // 创建多个匹配的紧固件
         FastenerWarehouse fastener1 = new FastenerWarehouse();
@@ -199,5 +200,43 @@ public class FastenerErpCodeFinderTest {
         assertTrue(result.isSuccess());
         assertEquals("07.0100.00001", result.getErpCode()); // 应该返回第一个匹配的
         assertTrue(result.isFastenerComponent()); // 验证是紧固件组件
+    }
+    
+    @Test
+    void testFindErpCode_WithNormalization() {
+        // 测试标准化功能
+        Long componentId = 1L;
+        String componentCode = "GB/T 5783-M6*20-8.8Z"; // 包含需要标准化的字符
+        String name = "螺栓 弹圈"; // 包含需要标准化的字符
+        
+        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(1);
+        
+        // 验证parse方法接收到的是标准化后的参数
+        // GB/T 5783-M6*20-8.8Z -> GB5783-M6x20-8.8Z (标准化后)
+        // 螺栓 弹圈 -> 螺栓弹垫 (标准化后)
+        String expectedNormalizedComponentCode = "GB5783-M6x20-8.8Z";
+        String expectedNormalizedName = "螺栓弹垫";
+        
+        FastenerParseResult parseResult = FastenerParseResult.success(
+            expectedNormalizedComponentCode, expectedNormalizedName, 
+            "GB5783", "M6x20", "8.8", "镀锌等");
+        when(fastenerParser.parse(expectedNormalizedComponentCode, expectedNormalizedName)).thenReturn(parseResult);
+        
+        // 模拟缓存查询结果
+        List<FastenerWarehouse> productCodeMatches = Arrays.asList(sampleFastener);
+        when(fastenerWarehouseCacheService.getFastenersByProductCodeContaining("GB5783")).thenReturn(productCodeMatches);
+        
+        ErpCodeResult result = finder.findErpCode(componentId, componentCode, name);
+        
+        assertTrue(result.isSuccess());
+        assertEquals("07.0100.00001", result.getErpCode());
+        assertEquals("GB5783", result.getMatchedProductCode());
+        assertEquals("M6x20", result.getMatchedSpecs());
+        assertEquals("8.8", result.getMatchedLevel());
+        assertEquals("镀锌等", result.getMatchedSurfaceTreatment());
+        assertTrue(result.isFastenerComponent());
+        
+        // 验证parse方法被调用时使用的是标准化后的参数
+        verify(fastenerParser).parse(expectedNormalizedComponentCode, expectedNormalizedName);
     }
 }

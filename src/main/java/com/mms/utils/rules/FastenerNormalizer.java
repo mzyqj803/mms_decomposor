@@ -17,6 +17,11 @@ public class FastenerNormalizer {
         return this;
     }
 
+    public FastenerNormalizer setRawStr(String rawStr) {
+        this.rawStr = rawStr;
+        return this;
+    }
+
     public String normalize() {
         String normalizedStr = this.rawStr;
 
@@ -52,7 +57,7 @@ public class FastenerNormalizer {
       *                     .Range("M6:M" & x).Replace what:="µ¯È¦", replacement:="µ¯µæ"
       * @return 归一化器
       */
-     public static FastenerNormalizer intialize() {
+     public static FastenerNormalizer initialize() {
          FastenerNormalizer normalizer = new FastenerNormalizer();
          normalizer.applyRules(String::trim)
                  .applyRules(str -> str.replace("*", "x"))

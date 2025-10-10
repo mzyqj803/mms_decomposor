@@ -65,18 +65,21 @@ public class ComponentFastenerServiceImpl implements ComponentFastenerService {
     public boolean isAssembledFastener(Long componentId) {
         String cacheKey = "fastener:assembled:" + componentId;
         
+        // 优先从预加载的缓存中获取（永不过期）
         Boolean cachedResult = cacheService.get(cacheKey, Boolean.class);
         if (cachedResult != null) {
-            log.debug("从缓存返回工件{}是否产线装配紧固件: {}", componentId, cachedResult);
+            log.debug("从预加载缓存返回工件{}是否产线装配紧固件: {}", componentId, cachedResult);
             return cachedResult;
         }
         
-        boolean isAssembled = componentFastenerRepository.isAssembledFastener(componentId);
+        // 如果缓存中没有，从数据库查询并缓存（永不过期）
+        Integer result = componentFastenerRepository.isAssembledFastener(componentId);
+        boolean isAssembled = result != null && result > 0;
         
-        // 缓存15分钟
-        cacheService.set(cacheKey, isAssembled, 15, TimeUnit.MINUTES);
+        // 缓存到Redis（永不过期）
+        cacheService.set(cacheKey, isAssembled);
         
-        log.debug("查询工件{}是否产线装配紧固件: {}", componentId, isAssembled);
+        log.debug("从数据库查询工件{}是否产线装配紧固件: {}", componentId, isAssembled);
         return isAssembled;
     }
     
@@ -84,18 +87,21 @@ public class ComponentFastenerServiceImpl implements ComponentFastenerService {
     public boolean isUnassembledFastener(Long componentId) {
         String cacheKey = "fastener:unassembled:" + componentId;
         
+        // 优先从预加载的缓存中获取（永不过期）
         Boolean cachedResult = cacheService.get(cacheKey, Boolean.class);
         if (cachedResult != null) {
-            log.debug("从缓存返回工件{}是否仓库装箱紧固件: {}", componentId, cachedResult);
+            log.debug("从预加载缓存返回工件{}是否仓库装箱紧固件: {}", componentId, cachedResult);
             return cachedResult;
         }
         
-        boolean isUnassembled = componentFastenerRepository.isUnassembledFastener(componentId);
+        // 如果缓存中没有，从数据库查询并缓存（永不过期）
+        Integer result = componentFastenerRepository.isUnassembledFastener(componentId);
+        boolean isUnassembled = result != null && result > 0;
         
-        // 缓存15分钟
-        cacheService.set(cacheKey, isUnassembled, 15, TimeUnit.MINUTES);
+        // 缓存到Redis（永不过期）
+        cacheService.set(cacheKey, isUnassembled);
         
-        log.debug("查询工件{}是否仓库装箱紧固件: {}", componentId, isUnassembled);
+        log.debug("从数据库查询工件{}是否仓库装箱紧固件: {}", componentId, isUnassembled);
         return isUnassembled;
     }
     

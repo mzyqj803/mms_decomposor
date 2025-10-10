@@ -13,3 +13,4 @@ CREATE TABLE IF NOT EXISTS container_components_breakdown_erp (
   INDEX idx_ccbe_erp_code    (ERP_Code),
   CONSTRAINT fk_ccbe_breakdown FOREIGN KEY (Breakdown_ID) REFERENCES container_components_breakdown(ID) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+

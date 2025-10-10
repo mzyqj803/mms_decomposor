@@ -66,7 +66,7 @@ class ComponentFastenerServiceTest {
     void testIsAssembledFastener() {
         // 准备测试数据
         Long componentId = 1L;
-        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(true);
+        when(componentFastenerRepository.isAssembledFastener(componentId)).thenReturn(1);
         when(cacheService.get(anyString(), eq(Boolean.class))).thenReturn(null);
         
         // 执行测试
@@ -81,7 +81,7 @@ class ComponentFastenerServiceTest {
     void testIsUnassembledFastener() {
         // 准备测试数据
         Long componentId = 4L;
-        when(componentFastenerRepository.isUnassembledFastener(componentId)).thenReturn(true);
+        when(componentFastenerRepository.isUnassembledFastener(componentId)).thenReturn(1);
         when(cacheService.get(anyString(), eq(Boolean.class))).thenReturn(null);
         
         // 执行测试

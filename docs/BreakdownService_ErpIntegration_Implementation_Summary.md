@@ -242,3 +242,4 @@ Map<String, Object> result = breakdownService.breakdownContract(contractId);
 5. **可追溯**: 详细的日志和注释，便于问题排查
 
 该功能现在可以立即投入使用，为工艺分解结果提供完整的ERP代码支持，大大提高工作效率和数据质量！
+

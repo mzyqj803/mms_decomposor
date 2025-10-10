@@ -170,7 +170,6 @@ CREATE TABLE IF NOT EXISTS Contracts (
   Contract_No       VARCHAR(255),
   Client_Name       VARCHAR(511),
   Project_Name      VARCHAR(511),
-  Quantity           INT,
   Entry_TS           TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
   Entry_User         VARCHAR(50) DEFAULT 'SYS_USER',
   Last_Update_TS     TIMESTAMP DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP(),

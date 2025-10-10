@@ -133,7 +133,6 @@ public class ContractsServiceImpl implements ContractsService {
         
         existingContract.setClientName(contract.getClientName());
         existingContract.setProjectName(contract.getProjectName());
-        existingContract.setQuantity(contract.getQuantity());
         
         Contracts updatedContract = contractsRepository.save(existingContract);
         

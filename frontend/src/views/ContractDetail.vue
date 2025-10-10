@@ -20,7 +20,6 @@
           <el-descriptions-item label="合同号">{{ contract.contractNo }}</el-descriptions-item>
           <el-descriptions-item label="客户名称">{{ contract.clientName }}</el-descriptions-item>
           <el-descriptions-item label="项目名称">{{ contract.projectName }}</el-descriptions-item>
-          <el-descriptions-item label="数量">{{ contract.quantity }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="getStatusType(contract.status)">
               {{ getStatusText(contract.status) }}

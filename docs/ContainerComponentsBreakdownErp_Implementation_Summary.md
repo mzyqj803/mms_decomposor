@@ -259,3 +259,4 @@ CREATE TABLE IF NOT EXISTS container_components_breakdown_erp (
 5. **性能优化**: 合理的索引设计和查询优化
 
 该表可以立即投入使用，为工艺分解结果提供ERP代码管理功能，支持手动录入和自动生成两种方式，满足不同业务场景的需求。
+

@@ -188,6 +188,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                     componentInfo.put("procurementFlag", component.getProcurementFlag());
                     componentInfo.put("commonPartsFlag", component.getCommonPartsFlag());
                     componentInfo.put("remark", ""); // 正常组件无备注
+                    componentInfo.put("erpCode", ""); // 父组件默认无ERP代码
                     
                     // 添加子组件信息
                     List<Map<String, Object>> childComponents = new ArrayList<>();
@@ -218,6 +219,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                     componentInfo.put("procurementFlag", false);
                     componentInfo.put("commonPartsFlag", false);
                     componentInfo.put("remark", "工件不存在"); // 问题组件备注
+                    componentInfo.put("erpCode", ""); // 问题组件无ERP代码
                     componentInfo.put("childComponents", new ArrayList<>()); // 空子组件列表
                     String problem = String.format("部件编号 %s (%s) 在components表中找不到匹配项", 
                         componentCode, containerComponent.getComponentName());
@@ -254,6 +256,17 @@ public class BreakdownServiceImpl implements BreakdownService {
             Components subComponent = breakdown.getSubComponent();
             String componentCode = subComponent.getComponentCode();
             
+            // 获取ERP代码
+            String erpCode = "";
+            try {
+                List<ContainerComponentsBreakdownErp> erpRecords = breakdownErpService.findByBreakdownId(breakdown.getId());
+                if (!erpRecords.isEmpty()) {
+                    erpCode = erpRecords.get(0).getErpCode();
+                }
+            } catch (Exception e) {
+                log.debug("获取组件 {} 的ERP代码失败: {}", componentCode, e.getMessage());
+            }
+            
             if (allComponents.containsKey(componentCode)) {
                 // 合并同ComponentNo的组件，累加数量
                 Map<String, Object> existing = allComponents.get(componentCode);
@@ -265,6 +278,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 existing.put("commonPartsFlag", subComponent.getCommonPartsFlag());
                 existing.put("remark", ""); // 子组件正常，无备注
                 existing.put("isParentComponent", false); // 标记为子组件
+                existing.put("erpCode", erpCode); // 添加ERP代码
             } else {
                 // 新的子组件
                 Map<String, Object> componentInfo = new HashMap<>();
@@ -275,6 +289,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 componentInfo.put("commonPartsFlag", subComponent.getCommonPartsFlag());
                 componentInfo.put("remark", ""); // 子组件正常，无备注
                 componentInfo.put("isParentComponent", false); // 标记为子组件
+                componentInfo.put("erpCode", erpCode); // 添加ERP代码
                 allComponents.put(componentCode, componentInfo);
             }
         }

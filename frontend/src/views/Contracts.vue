@@ -75,7 +75,6 @@
           <el-table-column prop="contractNo" label="合同号" width="150" />
           <el-table-column prop="clientName" label="客户名称" width="200" />
           <el-table-column prop="projectName" label="项目名称" min-width="200" />
-          <el-table-column prop="quantity" label="数量" width="100" align="center" />
           <el-table-column prop="status" label="状态" width="120" align="center">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)">
@@ -139,9 +138,6 @@
             </el-form-item>
             <el-form-item label="项目名称" prop="projectName">
               <el-input v-model="contractForm.projectName" placeholder="请输入项目名称" />
-            </el-form-item>
-            <el-form-item label="数量" prop="quantity">
-              <el-input-number v-model="contractForm.quantity" :min="1" style="width: 100%;" />
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -234,7 +230,6 @@ const contractForm = reactive({
   contractNo: '',
   clientName: '',
   projectName: '',
-  quantity: 1,
   parameters: [
     { paramName: '', paramValue: '' }
   ]
@@ -257,9 +252,6 @@ const contractRules = {
   ],
   projectName: [
     { required: true, message: '请输入项目名称', trigger: 'blur' }
-  ],
-  quantity: [
-    { required: true, message: '请输入数量', trigger: 'blur' }
   ]
 }
 
@@ -356,7 +348,6 @@ const handleCreate = () => {
     contractNo: '',
     clientName: '',
     projectName: '',
-    quantity: 1,
     parameters: [
       { paramName: '', paramValue: '' }
     ]
@@ -436,7 +427,6 @@ const handleSubmit = async () => {
           contractNo: contractForm.contractNo,
           clientName: contractForm.clientName,
           projectName: contractForm.projectName,
-          quantity: contractForm.quantity,
           parameters: validParameters
         }
         

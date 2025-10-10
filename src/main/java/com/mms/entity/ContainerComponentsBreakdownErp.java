@@ -36,3 +36,4 @@ public class ContainerComponentsBreakdownErp extends BaseEntity {
     @Column(name = "comments", columnDefinition = "TEXT")
     private String comments;
 }
+

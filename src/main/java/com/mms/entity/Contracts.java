@@ -22,8 +22,6 @@ public class Contracts extends BaseEntity {
     @Column(name = "project_name", length = 511)
     private String projectName;
     
-    @Column(name = "quantity")
-    private Integer quantity;
     
     // 合同状态：0=DRAFT, 1=PROCESSING, 2=COMPLETED, 3=ERROR
     @Column(name = "status")

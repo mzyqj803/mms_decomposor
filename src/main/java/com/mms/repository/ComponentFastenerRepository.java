@@ -29,14 +29,14 @@ public interface ComponentFastenerRepository extends JpaRepository<com.mms.entit
     /**
      * 检查指定工件ID是否为产线装配紧固件
      */
-    @Query(value = "SELECT COUNT(*) > 0 FROM components_fastener_assembled WHERE component_id = :componentId", nativeQuery = true)
-    boolean isAssembledFastener(@Param("componentId") Long componentId);
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM components_fastener_assembled WHERE component_id = :componentId", nativeQuery = true)
+    Integer isAssembledFastener(@Param("componentId") Long componentId);
     
     /**
      * 检查指定工件ID是否为仓库装箱紧固件
      */
-    @Query(value = "SELECT COUNT(*) > 0 FROM components_fastener_unassembled WHERE component_id = :componentId", nativeQuery = true)
-    boolean isUnassembledFastener(@Param("componentId") Long componentId);
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM components_fastener_unassembled WHERE component_id = :componentId", nativeQuery = true)
+    Integer isUnassembledFastener(@Param("componentId") Long componentId);
     
     /**
      * 获取工件装配类型

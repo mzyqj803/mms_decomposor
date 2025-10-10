@@ -198,6 +198,12 @@
                 <el-table-column prop="componentCode" label="部件编号" width="150" />
                 <el-table-column prop="name" label="部件名称" />
                 <el-table-column prop="quantity" label="数量" width="80" />
+                <el-table-column prop="erpCode" label="ERP代码" width="120">
+                  <template #default="{ row }">
+                    <span v-if="row.erpCode" class="normal-component-text">{{ row.erpCode }}</span>
+                    <span v-else class="normal-component-text">-</span>
+                  </template>
+                </el-table-column>
                 <el-table-column prop="procurementFlag" label="是否外购" width="100">
                   <template #default="{ row }">
                     <el-tag :type="row.procurementFlag ? 'success' : 'info'">
@@ -248,6 +254,12 @@
           <el-table-column prop="componentCode" label="部件编号" width="150" />
           <el-table-column prop="name" label="部件名称" min-width="200" />
           <el-table-column prop="quantity" label="数量" width="80" />
+          <el-table-column prop="erpCode" label="ERP代码" width="120">
+            <template #default="{ row }">
+              <span v-if="row.erpCode" class="normal-component-text">{{ row.erpCode }}</span>
+              <span v-else class="normal-component-text">-</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="procurementFlag" label="是否外购" width="100">
             <template #default="{ row }">
               <el-tag :type="row.procurementFlag ? 'success' : 'info'">

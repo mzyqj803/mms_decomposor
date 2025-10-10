@@ -2,8 +2,9 @@ package com.mms.utils;
 
 import com.mms.dto.FastenerParseResult;
 import com.mms.entity.FastenerWarehouse;
-import com.mms.repository.ComponentFastenerRepository;
+import com.mms.service.ComponentFastenerService;
 import com.mms.service.FastenerWarehouseCacheService;
+import com.mms.utils.rules.FastenerNormalizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +24,7 @@ import java.util.List;
 public class FastenerErpCodeFinder {
     
     @Autowired
-    private ComponentFastenerRepository componentFastenerRepository;
+    private ComponentFastenerService componentFastenerService;
     
     @Autowired
     private FastenerWarehouseCacheService fastenerWarehouseCacheService;
@@ -45,13 +46,17 @@ public class FastenerErpCodeFinder {
             return ErpCodeResult.notFastener(componentId, componentCode, name);
         }
         
-        // 2. 解析紧固件信息
-        FastenerParseResult parseResult = fastenerParser.parse(componentCode, name);
+        // 2. 对输入参数进行标准化处理
+        String normalizedComponentCode = normalizeString(componentCode);
+        String normalizedName = normalizeString(name);
+        
+        // 3. 解析紧固件信息
+        FastenerParseResult parseResult = fastenerParser.parse(normalizedComponentCode, normalizedName);
         if (!parseResult.isSuccess()) {
             return ErpCodeResult.parseError(componentId, componentCode, name, parseResult.getErrorMessage());
         }
         
-        // 3. 按优先级匹配ERP代码
+        // 4. 按优先级匹配ERP代码
         return matchErpCode(componentId, componentCode, name, parseResult);
     }
     
@@ -59,8 +64,20 @@ public class FastenerErpCodeFinder {
      * 检查是否为紧固件
      */
     private boolean isFastener(Long componentId) {
-        return componentFastenerRepository.isAssembledFastener(componentId) || 
-               componentFastenerRepository.isUnassembledFastener(componentId);
+        return componentFastenerService.isAssembledFastener(componentId) || 
+               componentFastenerService.isUnassembledFastener(componentId);
+    }
+    
+    /**
+     * 使用FastenerNormalizer对字符串进行标准化处理
+     */
+    private String normalizeString(String input) {
+        if (input == null) {
+            return null;
+        }
+        return FastenerNormalizer.initialize()
+                .setRawStr(input)
+                .normalize();
     }
     
     /**

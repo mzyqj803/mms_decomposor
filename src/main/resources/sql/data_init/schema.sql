@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS contracts (
   Contract_No       VARCHAR(255),
   Client_Name       VARCHAR(511),
   Project_Name      VARCHAR(511),
-  Quantity           INT,
   status            INT DEFAULT 0,
   Entry_TS           TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
   Entry_User         VARCHAR(50) DEFAULT 'SYS_USER',

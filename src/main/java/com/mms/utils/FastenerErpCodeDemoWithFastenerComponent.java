@@ -125,3 +125,4 @@ public class FastenerErpCodeDemoWithFastenerComponent {
         System.out.println("\n=== 业务逻辑演示完成 ===");
     }
 }
+
