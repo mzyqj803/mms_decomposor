@@ -58,6 +58,63 @@ public class ContainersServiceImpl implements ContainersService {
     
     @Override
     @Transactional
+    public void updateContainerComponent(Long containerId, Long componentId, Map<String, Object> componentData) {
+        // 验证装箱单是否存在
+        getContainerById(containerId);
+        
+        // 查找组件
+        ContainerComponents component = containerComponentsRepository.findById(componentId)
+            .orElseThrow(() -> new RuntimeException("组件不存在"));
+        
+        // 验证组件是否属于该装箱单
+        if (!component.getContainer().getId().equals(containerId)) {
+            throw new RuntimeException("组件不属于该装箱单");
+        }
+        
+        // 更新组件信息
+        if (componentData.containsKey("componentNo")) {
+            component.setComponentNo((String) componentData.get("componentNo"));
+        }
+        if (componentData.containsKey("componentName")) {
+            component.setComponentName((String) componentData.get("componentName"));
+        }
+        if (componentData.containsKey("unitCode")) {
+            component.setUnitCode((String) componentData.get("unitCode"));
+        }
+        if (componentData.containsKey("quantity")) {
+            component.setQuantity((Integer) componentData.get("quantity"));
+        }
+        if (componentData.containsKey("comments")) {
+            component.setComments((String) componentData.get("comments"));
+        }
+        
+        // 保存更新
+        containerComponentsRepository.save(component);
+        log.info("更新装箱单组件: containerId={}, componentId={}", containerId, componentId);
+    }
+    
+    @Override
+    @Transactional
+    public void deleteContainerComponent(Long containerId, Long componentId) {
+        // 验证装箱单是否存在
+        getContainerById(containerId);
+        
+        // 查找组件
+        ContainerComponents component = containerComponentsRepository.findById(componentId)
+            .orElseThrow(() -> new RuntimeException("组件不存在"));
+        
+        // 验证组件是否属于该装箱单
+        if (!component.getContainer().getId().equals(containerId)) {
+            throw new RuntimeException("组件不属于该装箱单");
+        }
+        
+        // 删除组件
+        containerComponentsRepository.delete(component);
+        log.info("删除装箱单组件: containerId={}, componentId={}", containerId, componentId);
+    }
+    
+    @Override
+    @Transactional
     public void deleteContainer(Long id) {
         Containers container = getContainerById(id);
         containersRepository.delete(container);

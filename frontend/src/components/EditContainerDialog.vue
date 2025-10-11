@@ -63,6 +63,14 @@
       </div>
     </template>
   </el-dialog>
+  
+  <!-- 编辑组件对话框 -->
+  <EditComponentDialog
+    v-model="showEditComponentDialog"
+    :component-data="selectedComponent"
+    :container-id="containerInfo.id"
+    @success="handleEditComponentSuccess"
+  />
 </template>
 
 <script setup>
@@ -70,6 +78,7 @@ import { ref, reactive, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import containersApi from '@/api/containers'
+import EditComponentDialog from './EditComponentDialog.vue'
 
 const props = defineProps({
   modelValue: {
@@ -87,6 +96,8 @@ const emit = defineEmits(['update:modelValue', 'success'])
 const visible = ref(false)
 const loading = ref(false)
 const components = ref([])
+const showEditComponentDialog = ref(false)
+const selectedComponent = ref({})
 
 const containerInfo = reactive({
   id: null,
@@ -141,8 +152,8 @@ const refreshComponents = () => {
 }
 
 const handleEditComponent = (row) => {
-  ElMessage.info(`编辑组件: ${row.componentName}`)
-  // TODO: 实现组件编辑功能
+  selectedComponent.value = row
+  showEditComponentDialog.value = true
 }
 
 const handleDeleteComponent = async (row) => {
@@ -157,10 +168,12 @@ const handleDeleteComponent = async (row) => {
       }
     )
     
+    await containersApi.deleteContainerComponent(containerInfo.id, row.id)
     ElMessage.success('删除成功')
     loadComponents()
   } catch (error) {
     if (error !== 'cancel') {
+      console.error('删除组件失败:', error)
       ElMessage.error('删除失败')
     }
   }
@@ -172,10 +185,16 @@ const handleSave = () => {
   handleClose()
 }
 
+const handleEditComponentSuccess = () => {
+  loadComponents()
+}
+
 const handleClose = () => {
   visible.value = false
   // 重置数据
   components.value = []
+  showEditComponentDialog.value = false
+  selectedComponent.value = {}
   Object.assign(containerInfo, {
     id: null,
     containerNo: '',

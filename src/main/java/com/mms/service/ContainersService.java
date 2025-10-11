@@ -25,6 +25,16 @@ public interface ContainersService {
     List<Map<String, Object>> getContainerComponents(Long containerId);
     
     /**
+     * 更新装箱单内的组件
+     */
+    void updateContainerComponent(Long containerId, Long componentId, Map<String, Object> componentData);
+    
+    /**
+     * 删除装箱单内的组件
+     */
+    void deleteContainerComponent(Long containerId, Long componentId);
+    
+    /**
      * 删除装箱单
      */
     void deleteContainer(Long id);

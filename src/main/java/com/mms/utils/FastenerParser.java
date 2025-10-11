@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 /**
  * 紧固件解析器
  * 用于解析component_code和name，提取product_code、specs、level、surface_treatment等信息
+ * <div style="color: red; font-weight: bold;">东南电梯专用</div>
  */
 @Component
 public class FastenerParser {

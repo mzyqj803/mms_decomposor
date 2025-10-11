@@ -60,6 +60,59 @@ public class ContainersController {
     }
     
     /**
+     * 更新装箱单内的组件
+     */
+    @PutMapping("/{containerId}/components/{componentId}")
+    public ResponseEntity<Map<String, Object>> updateContainerComponent(
+            @PathVariable Long containerId,
+            @PathVariable Long componentId,
+            @RequestBody Map<String, Object> componentData) {
+        try {
+            containersService.updateContainerComponent(containerId, componentId, componentData);
+            
+            Map<String, Object> response = Map.of(
+                "success", true,
+                "message", "组件更新成功"
+            );
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, Object> response = Map.of(
+                "success", false,
+                "message", "更新失败: " + e.getMessage()
+            );
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    /**
+     * 删除装箱单内的组件
+     */
+    @DeleteMapping("/{containerId}/components/{componentId}")
+    public ResponseEntity<Map<String, Object>> deleteContainerComponent(
+            @PathVariable Long containerId,
+            @PathVariable Long componentId) {
+        try {
+            containersService.deleteContainerComponent(containerId, componentId);
+            
+            Map<String, Object> response = Map.of(
+                "success", true,
+                "message", "组件删除成功"
+            );
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, Object> response = Map.of(
+                "success", false,
+                "message", "删除失败: " + e.getMessage()
+            );
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    /**
      * 删除装箱单
      */
     @DeleteMapping("/{id}")

@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     CreateContainerDialog: typeof import('./src/components/CreateContainerDialog.vue')['default']
+    EditComponentDialog: typeof import('./src/components/EditComponentDialog.vue')['default']
     EditContainerDialog: typeof import('./src/components/EditContainerDialog.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAside: typeof import('element-plus/es')['ElAside']

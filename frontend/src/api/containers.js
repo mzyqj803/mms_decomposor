@@ -63,6 +63,16 @@ export const containersApi = {
   // 获取装箱单内的组件列表
   getContainerComponents(containerId) {
     return api.get(`/containers/${containerId}/components`)
+  },
+
+  // 更新装箱单内的组件
+  updateContainerComponent(containerId, componentId, componentData) {
+    return api.put(`/containers/${containerId}/components/${componentId}`, componentData)
+  },
+
+  // 删除装箱单内的组件
+  deleteContainerComponent(containerId, componentId) {
+    return api.delete(`/containers/${containerId}/components/${componentId}`)
   }
 }
 
