@@ -102,6 +102,13 @@
       v-model="showCreateDialog"
       @success="handleCreateSuccess"
     />
+    
+    <!-- 编辑箱包对话框 -->
+    <EditContainerDialog
+      v-model="showEditDialog"
+      :container-data="selectedContainer"
+      @success="handleEditSuccess"
+    />
   </div>
 </template>
 
@@ -110,10 +117,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import CreateContainerDialog from '@/components/CreateContainerDialog.vue'
+import EditContainerDialog from '@/components/EditContainerDialog.vue'
 import containersApi from '@/api/containers'
 
 const loading = ref(false)
 const showCreateDialog = ref(false)
+const showEditDialog = ref(false)
+const selectedContainer = ref({})
 
 const searchForm = reactive({
   containerNo: '',
@@ -178,8 +188,8 @@ const handleView = (row) => {
 }
 
 const handleEdit = (row) => {
-  // TODO: 实现编辑箱包功能
-  ElMessage.info(`编辑箱包: ${row.name}`)
+  selectedContainer.value = row
+  showEditDialog.value = true
 }
 
 const handleDelete = async (row) => {
@@ -222,6 +232,10 @@ const handleCurrentChange = (page) => {
 
 const handleCreateSuccess = (data) => {
   ElMessage.success('装箱单创建成功')
+  loadContainers()
+}
+
+const handleEditSuccess = () => {
   loadContainers()
 }
 

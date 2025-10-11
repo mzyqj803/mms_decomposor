@@ -58,6 +58,11 @@ export const containersApi = {
   // 获取装箱单详情
   getContainerDetail(contractId, containerId) {
     return api.get(`/contracts/${contractId}/containers/${containerId}`)
+  },
+
+  // 获取装箱单内的组件列表
+  getContainerComponents(containerId) {
+    return api.get(`/containers/${containerId}/components`)
   }
 }
 

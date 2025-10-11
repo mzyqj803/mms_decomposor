@@ -29,3 +29,4 @@ public interface FastenerCacheService {
      */
     long getFastenerCacheSize();
 }
+

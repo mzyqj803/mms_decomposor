@@ -9,8 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/containers")
@@ -44,6 +44,19 @@ public class ContainersController {
     public ResponseEntity<Containers> getContainer(@PathVariable Long id) {
         Containers container = containersService.getContainerById(id);
         return ResponseEntity.ok(container);
+    }
+    
+    /**
+     * 获取装箱单内的组件列表
+     */
+    @GetMapping("/{id}/components")
+    public ResponseEntity<List<Map<String, Object>>> getContainerComponents(@PathVariable Long id) {
+        try {
+            List<Map<String, Object>> components = containersService.getContainerComponents(id);
+            return ResponseEntity.ok(components);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
     
     /**

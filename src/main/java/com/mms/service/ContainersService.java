@@ -4,6 +4,9 @@ import com.mms.entity.Containers;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+import java.util.Map;
+
 public interface ContainersService {
     
     /**
@@ -15,6 +18,11 @@ public interface ContainersService {
      * 根据ID获取装箱单
      */
     Containers getContainerById(Long id);
+    
+    /**
+     * 获取装箱单内的组件列表
+     */
+    List<Map<String, Object>> getContainerComponents(Long containerId);
     
     /**
      * 删除装箱单
