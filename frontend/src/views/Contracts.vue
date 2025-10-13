@@ -87,14 +87,26 @@
               {{ formatDate(row.entryTs) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column label="操作" width="280" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" size="small" @click="handleView(row)">
                 查看
               </el-button>
-              <el-button type="success" size="small" @click="handleAction(row)">
-                {{ getActionText(row) }}
-              </el-button>
+              <template v-if="row.status === 2">
+                <!-- 完成工艺分解状态：显示两个按钮 -->
+                <el-button type="success" size="small" @click="handleViewBreakdown(row)">
+                  查看工艺分解
+                </el-button>
+                <el-button type="warning" size="small" @click="handleDownloadBreakdown(row)">
+                  下载合并分解表
+                </el-button>
+              </template>
+              <template v-else>
+                <!-- 其他状态：显示原来的按钮 -->
+                <el-button type="success" size="small" @click="handleAction(row)">
+                  {{ getActionText(row) }}
+                </el-button>
+              </template>
             </template>
           </el-table-column>
         </el-table>
@@ -210,6 +222,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { contractsApi } from '@/api/contracts'
+import { breakdownApi } from '@/api/breakdown'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -273,7 +286,7 @@ const getStatusText = (status) => {
   const statusMap = {
     0: '草稿',       // DRAFT
     1: '处理中',     // PROCESSING
-    2: '已完成',     // COMPLETED
+    2: '完成工艺分解', // COMPLETED
     3: '错误'        // ERROR
   }
   return statusMap[status] || '未知'
@@ -407,6 +420,59 @@ const handleAction = async (row) => {
   } else {
     // 查看详情
     router.push(`/contracts/${row.id}`)
+  }
+}
+
+// 查看工艺分解
+const handleViewBreakdown = (row) => {
+  router.push(`/breakdown?contractId=${row.id}`)
+}
+
+// 下载合并分解表
+const handleDownloadBreakdown = async (row) => {
+  try {
+    // 获取该合同的所有箱包
+    const containers = await contractsApi.getContractContainers(row.id)
+    
+    if (!containers || containers.length === 0) {
+      ElMessage.warning('该合同暂无箱包数据')
+      return
+    }
+    
+    // 筛选出已分解的箱包
+    const decomposedContainers = containers.filter(container => container.status === 1)
+    
+    if (decomposedContainers.length === 0) {
+      ElMessage.warning('该合同暂无已分解的箱包')
+      return
+    }
+    
+    // 调用合并分解表功能
+    const containerIds = decomposedContainers.map(container => container.id)
+    const response = await breakdownApi.mergeBreakdownTables(containerIds)
+    
+    if (response.success) {
+      ElMessage.success('合并分解表成功')
+      
+      // 生成下载链接
+      const downloadUrl = response.downloadUrl
+      if (downloadUrl) {
+        // 创建下载链接
+        const link = document.createElement('a')
+        link.href = downloadUrl
+        link.download = `合并分解表_${row.contractNo}_${new Date().toISOString().slice(0, 10)}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        ElMessage.success('PDF文件已开始下载')
+      }
+    } else {
+      ElMessage.error(response.message || '合并分解表失败')
+    }
+  } catch (error) {
+    console.error('下载合并分解表失败:', error)
+    ElMessage.error('下载合并分解表失败')
   }
 }
 

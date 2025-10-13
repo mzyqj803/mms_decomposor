@@ -5,8 +5,42 @@
       <p class="description">电梯零部件工艺分解和合并分解表生成</p>
     </div>
     
+    <!-- 当前合同信息 -->
+    <div class="current-contract-section" v-if="selectedContract">
+      <el-card>
+        <template #header>
+          <div class="card-header">
+            <span>当前合同信息</span>
+            <el-button type="primary" size="small" @click="clearSelection">
+              重新选择合同
+            </el-button>
+          </div>
+        </template>
+        <div class="contract-info">
+          <div class="info-item">
+            <span class="label">合同号：</span>
+            <span class="value">{{ selectedContract.contractNo }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">项目名称：</span>
+            <span class="value">{{ selectedContract.projectName }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">客户名称：</span>
+            <span class="value">{{ selectedContract.clientName }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">状态：</span>
+            <el-tag :type="getStatusType(selectedContract.status)">
+              {{ getStatusText(selectedContract.status) }}
+            </el-tag>
+          </div>
+        </div>
+      </el-card>
+    </div>
+    
     <!-- 合同搜索 -->
-    <div class="search-section">
+    <div class="search-section" v-if="!selectedContract">
       <el-card class="search-card">
         <template #header>
           <div class="card-header">
@@ -346,7 +380,8 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { contractsApi } from '@/api/contracts'
@@ -355,6 +390,7 @@ import { componentsApi } from '@/api/components'
 import '@/styles/problem-components.css'
 
 // 响应式数据
+const route = useRoute()
 const searchForm = reactive({
   keyword: ''
 })
@@ -859,6 +895,57 @@ const scrollToComponent = (componentCode) => {
   
   console.warn('未找到组件:', componentCode)
 }
+
+// 页面加载时检查URL参数
+onMounted(async () => {
+  const contractId = route.query.contractId
+  if (contractId) {
+    try {
+      // 根据合同ID获取合同信息
+      const contract = await contractsApi.getContract(contractId)
+      if (contract) {
+        // 自动选择该合同
+        await selectContract(contract)
+        
+        // 如果合同状态是已完成，自动加载分解结果
+        if (contract.status === 2) {
+          await loadBreakdownResults(contractId)
+        }
+        
+        ElMessage.success(`已自动加载合同 ${contract.contractNo} 的工艺分解数据`)
+      }
+    } catch (error) {
+      console.error('自动加载合同数据失败:', error)
+      ElMessage.error('自动加载合同数据失败')
+    }
+  }
+})
+
+// 加载工艺分解结果
+const loadBreakdownResults = async (contractId) => {
+  try {
+    const response = await breakdownApi.getContractBreakdownSummary(contractId)
+    if (response && response.allComponents) {
+      breakdownResults.value = {
+        contractId: contractId,
+        allComponents: response.allComponents,
+        totalComponents: response.totalComponents
+      }
+    }
+  } catch (error) {
+    console.error('加载工艺分解结果失败:', error)
+  }
+}
+
+// 清除选择
+const clearSelection = () => {
+  selectedContract.value = null
+  containers.value = []
+  breakdownResults.value = null
+  activeCollapse.value = []
+  contracts.value = []
+  searchForm.keyword = ''
+}
 </script>
 
 <style lang="scss" scoped>
@@ -879,6 +966,31 @@ const scrollToComponent = (componentCode) => {
   .description {
     color: #606266;
     font-size: 14px;
+  }
+}
+
+.current-contract-section {
+  margin-bottom: 20px;
+  
+  .contract-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    
+    .info-item {
+      display: flex;
+      align-items: center;
+      
+      .label {
+        font-weight: 500;
+        color: #606266;
+        margin-right: 8px;
+      }
+      
+      .value {
+        color: #303133;
+      }
+    }
   }
 }
 

@@ -142,6 +142,12 @@ public class BreakdownServiceImpl implements BreakdownService {
         // 生成汇总表
         Map<String, Object> summary = generateBreakdownSummary(contractId);
         
+        // 更新合同状态为已完成
+        Contracts contract = contractsRepository.findById(contractId)
+            .orElseThrow(() -> new RuntimeException("合同不存在"));
+        contract.setStatus(Contracts.ContractStatus.COMPLETED);
+        contractsRepository.save(contract);
+        
         Map<String, Object> response = new HashMap<>();
         response.put("contractId", contractId);
         response.put("containerResults", containerResults);
@@ -151,7 +157,7 @@ public class BreakdownServiceImpl implements BreakdownService {
         response.put("allProblemComponents", allProblemComponents);
         response.put("breakdownTime", new Date().toString());
         
-        log.info("合同工艺分解完成: contractId={}, 箱包数={}, 处理部件数={}", 
+        log.info("合同工艺分解完成: contractId={}, 箱包数={}, 处理部件数={}, 合同状态已更新为已完成", 
             contractId, containers.size(), totalProcessedComponents);
         
         return response;
@@ -546,9 +552,12 @@ public class BreakdownServiceImpl implements BreakdownService {
                     Map<String, Object> componentInfo = new HashMap<>();
                     componentInfo.put("componentCode", componentCode);
                     componentInfo.put("name", containerComponent.getComponentName());
+                    componentInfo.put("containerName", container.getName()); // 添加箱包名称
                     componentInfo.put("procurementFlag", false); // 默认值
                     componentInfo.put("commonPartsFlag", false); // 默认值
                     componentInfo.put("totalQuantity", containerComponent.getQuantity());
+                    componentInfo.put("erpCode", ""); // 父组件默认无ERP代码
+                    componentInfo.put("remark", ""); // 默认无备注
                     componentInfo.put("isParentComponent", true); // 标记为父组件
                     allComponentsSummary.put(componentCode, componentInfo);
                 }
@@ -560,6 +569,20 @@ public class BreakdownServiceImpl implements BreakdownService {
             Components component = breakdown.getSubComponent();
             String componentCode = component.getComponentCode();
             
+            // 获取ERP代码
+            String erpCode = "";
+            try {
+                List<ContainerComponentsBreakdownErp> erpRecords = breakdownErpService.findByBreakdownId(breakdown.getId());
+                if (!erpRecords.isEmpty()) {
+                    erpCode = erpRecords.get(0).getErpCode() != null ? erpRecords.get(0).getErpCode() : "";
+                }
+            } catch (Exception e) {
+                log.debug("获取组件 {} 的ERP代码失败: {}", componentCode, e.getMessage());
+            }
+            
+            // 获取箱包名称
+            String containerName = breakdown.getContainer() != null ? breakdown.getContainer().getName() : "未知箱包";
+            
             if (allComponentsSummary.containsKey(componentCode)) {
                 // 合并同ComponentNo的组件，累加数量
                 Map<String, Object> existing = allComponentsSummary.get(componentCode);
@@ -567,17 +590,23 @@ public class BreakdownServiceImpl implements BreakdownService {
                 existing.put("totalQuantity", currentQuantity + breakdown.getQuantity());
                 // 更新其他信息
                 existing.put("name", component.getName());
+                existing.put("containerName", containerName); // 更新箱包名称
                 existing.put("procurementFlag", component.getProcurementFlag());
                 existing.put("commonPartsFlag", component.getCommonPartsFlag());
+                existing.put("erpCode", erpCode); // 更新ERP代码
+                existing.put("remark", ""); // 子组件正常，无备注
                 existing.put("isParentComponent", false); // 标记为子组件
             } else {
                 // 新的子组件
                 Map<String, Object> componentInfo = new HashMap<>();
                 componentInfo.put("componentCode", componentCode);
                 componentInfo.put("name", component.getName());
+                componentInfo.put("containerName", containerName); // 添加箱包名称
                 componentInfo.put("procurementFlag", component.getProcurementFlag());
                 componentInfo.put("commonPartsFlag", component.getCommonPartsFlag());
                 componentInfo.put("totalQuantity", breakdown.getQuantity());
+                componentInfo.put("erpCode", erpCode); // 添加ERP代码
+                componentInfo.put("remark", ""); // 子组件正常，无备注
                 componentInfo.put("isParentComponent", false); // 标记为子组件
                 allComponentsSummary.put(componentCode, componentInfo);
             }

@@ -5,6 +5,7 @@ import com.mms.entity.Containers;
 import com.mms.dto.ContainerDTO;
 import com.mms.repository.ContractsRepository;
 import com.mms.repository.ContainersRepository;
+import com.mms.service.BreakdownService;
 import com.mms.service.CacheService;
 import com.mms.service.ContractParametersService;
 import com.mms.service.ContractsService;
@@ -32,6 +33,7 @@ public class ContractsServiceImpl implements ContractsService {
     private final CacheService cacheService;
     private final DistributedLockService distributedLockService;
     private final ContractParametersService contractParametersService;
+    private final BreakdownService breakdownService;
     
     @Override
     public Page<Contracts> getContracts(String contractNo, String projectName, Contracts.ContractStatus status, Pageable pageable) {
@@ -95,6 +97,11 @@ public class ContractsServiceImpl implements ContractsService {
         
         Contracts contract = contractsRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("合同不存在"));
+        
+        // 确保装箱单数据被加载（由于使用了LAZY加载）
+        if (contract.getContainers() != null) {
+            contract.getContainers().size(); // 触发懒加载
+        }
         
         // 缓存10分钟
         cacheService.set(cacheKey, contract, 10, TimeUnit.MINUTES);
@@ -254,14 +261,42 @@ public class ContractsServiceImpl implements ContractsService {
         
         Contracts contract = getContractById(contractId);
         
-        // TODO: 实现获取工艺分解结果的逻辑
-        // 1. 查询分解表数据
-        // 2. 组装返回结果
+        // 获取合同分解汇总
+        Map<String, Object> summary = breakdownService.getContractBreakdownSummary(contractId);
+        @SuppressWarnings("unchecked")
+        java.util.Collection<Map<String, Object>> allComponents = (java.util.Collection<Map<String, Object>>) summary.get("allComponents");
+        
+        // 将后端汇总结构转换为前端需要的展示结构
+        java.util.List<Map<String, Object>> breakdownData = new java.util.ArrayList<>();
+        if (allComponents != null) {
+            for (Map<String, Object> comp : allComponents) {
+                Map<String, Object> row = new HashMap<>();
+                row.put("containerName", comp.getOrDefault("containerName", "未知箱包")); // 所属箱包
+                row.put("componentCode", comp.get("componentCode")); // 部件代号
+                row.put("componentName", comp.get("name")); // 部件名称
+                row.put("quantity", comp.getOrDefault("totalQuantity", comp.get("quantity"))); // 数量
+                row.put("erpCode", comp.getOrDefault("erpCode", "")); // ERP代码
+                row.put("procurementFlag", comp.getOrDefault("procurementFlag", false)); // 是否外购
+                row.put("remark", comp.getOrDefault("remark", "")); // 备注
+                breakdownData.add(row);
+            }
+        }
         
         Map<String, Object> result = new HashMap<>();
         result.put("contractId", contractId);
-        result.put("status", contract.getStatus());
-        result.put("breakdownData", new HashMap<>()); // 实际的分解数据
+        // 将整数状态转换为文本，便于前端判断
+        String statusText;
+        switch (contract.getStatus() == null ? -1 : contract.getStatus()) {
+            case 0: statusText = "DRAFT"; break;
+            case 1: statusText = "PROCESSING"; break;
+            case 2: statusText = "COMPLETED"; break;
+            case 3: statusText = "ERROR"; break;
+            default: statusText = "UNKNOWN"; break;
+        }
+        result.put("status", statusText);
+        result.put("success", true);
+        result.put("message", breakdownData.isEmpty() ? "暂无分解结果" : "分解结果加载成功");
+        result.put("breakdownData", breakdownData);
         
         // 缓存5分钟
         cacheService.set(cacheKey, result, 5, TimeUnit.MINUTES);
@@ -277,28 +312,8 @@ public class ContractsServiceImpl implements ContractsService {
             throw new RuntimeException("只有完成状态的合同才能导出分解表");
         }
         
-        // TODO: 实现导出逻辑
-        // 1. 获取分解表数据
-        // 2. 根据格式生成Excel或PDF文件
-        // 3. 返回文件字节数组
-        
-        if ("excel".equals(format)) {
-            // 生成Excel文件
-            return generateExcelFile(contract);
-        } else {
-            // 生成PDF文件
-            return generatePdfFile(contract);
-        }
-    }
-    
-    private byte[] generateExcelFile(Contracts contract) {
-        // TODO: 使用Apache POI生成Excel文件
-        return new byte[0];
-    }
-    
-    private byte[] generatePdfFile(Contracts contract) {
-        // TODO: 使用iText生成PDF文件
-        return new byte[0];
+        // 使用BreakdownService的合并分解表功能
+        return breakdownService.generateMergedBreakdownPdf(contractId);
     }
     
     private void clearContractCache(Long contractId) {

@@ -143,12 +143,19 @@
           <div v-if="breakdownResult.breakdownData">
             <!-- 这里显示分解表数据 -->
             <el-table :data="breakdownResult.breakdownData" stripe>
-              <el-table-column prop="componentCode" label="零部件代号" />
-              <el-table-column prop="componentName" label="零部件名称" />
-              <el-table-column prop="specification" label="规格" />
-              <el-table-column prop="quantity" label="数量" />
-              <el-table-column prop="unit" label="单位" />
-              <el-table-column prop="source" label="来源" />
+              <el-table-column prop="containerName" label="所属箱包" width="150" />
+              <el-table-column prop="componentCode" label="部件代号" width="150" />
+              <el-table-column prop="componentName" label="部件名称" min-width="200" />
+              <el-table-column prop="quantity" label="数量" width="80" align="center" />
+              <el-table-column prop="erpCode" label="ERP代码" width="120" />
+              <el-table-column prop="procurementFlag" label="是否外购" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="row.procurementFlag ? 'success' : 'info'" size="small">
+                    {{ row.procurementFlag ? '是' : '否' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="remark" label="备注" min-width="150" />
             </el-table>
           </div>
         </div>
