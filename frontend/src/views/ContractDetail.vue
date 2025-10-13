@@ -57,9 +57,14 @@
       
       <!-- 装箱单信息 -->
       <div class="info-card">
-        <div class="card-title">
-          装箱单信息
-          <div class="card-actions">
+        <div class="card-title" @click="toggleContainersCard">
+          <div class="card-title-left">
+            <el-icon class="collapse-icon" :class="{ 'is-expanded': containersCardExpanded }">
+              <ArrowRight />
+            </el-icon>
+            装箱单信息
+          </div>
+          <div class="card-actions" @click.stop>
             <el-button 
               type="primary" 
               size="small" 
@@ -88,80 +93,95 @@
           </div>
         </div>
         
-        <div v-if="contract.containers && contract.containers.length > 0">
-          <el-table :data="contract.containers" stripe>
-            <el-table-column prop="containerNo" label="装箱单号" />
-            <el-table-column prop="name" label="名称" />
-            <el-table-column prop="containerSize" label="尺寸" />
-            <el-table-column prop="containerWeight" label="重量" />
-            <el-table-column label="操作" width="120">
-              <template #default="{ row }">
-                <el-button type="primary" size="small" @click="viewContainer(row)">
-                  查看
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-        
-        <div v-else class="empty-state">
-          <el-empty description="暂无装箱单" />
+        <div v-show="containersCardExpanded" class="card-content">
+          <div v-if="containersLoading" class="loading-state">
+            <el-skeleton :rows="3" animated />
+          </div>
+          <div v-else-if="contract.containers && contract.containers.length > 0">
+            <el-table :data="contract.containers" stripe>
+              <el-table-column prop="containerNo" label="装箱单号" />
+              <el-table-column prop="name" label="名称" />
+              <el-table-column prop="containerSize" label="尺寸" />
+              <el-table-column prop="containerWeight" label="重量" />
+              <el-table-column label="操作" width="120">
+                <template #default="{ row }">
+                  <el-button type="primary" size="small" @click="viewContainer(row)">
+                    查看
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <div v-else class="empty-state">
+            <el-empty description="暂无装箱单" />
+          </div>
         </div>
       </div>
       
       <!-- 工艺分解结果 -->
       <div class="info-card">
-        <div class="card-title">
-          工艺分解结果
-          <el-button 
-            v-if="contract.status === 'DRAFT'"
-            type="success" 
-            size="small" 
-            @click="startBreakdown"
-            :loading="processing"
-          >
-            开始分解
-          </el-button>
-          <el-button 
-            v-if="contract.status === 'COMPLETED'"
-            type="primary" 
-            size="small" 
-            @click="exportBreakdown"
-          >
-            导出分解表
-          </el-button>
-        </div>
-        
-        <div v-if="breakdownResult">
-          <el-alert
-            :title="breakdownResult.message"
-            :type="breakdownResult.success ? 'success' : 'error'"
-            :closable="false"
-            style="margin-bottom: 20px;"
-          />
-          
-          <div v-if="breakdownResult.breakdownData">
-            <!-- 这里显示分解表数据 -->
-            <el-table :data="breakdownResult.breakdownData" stripe>
-              <el-table-column prop="containerName" label="所属箱包" width="150" />
-              <el-table-column prop="componentCode" label="部件代号" width="150" />
-              <el-table-column prop="componentName" label="部件名称" min-width="200" />
-              <el-table-column prop="quantity" label="数量" width="80" align="center" />
-              <el-table-column prop="erpCode" label="ERP代码" width="120" />
-              <el-table-column prop="procurementFlag" label="是否外购" width="100" align="center">
-                <template #default="{ row }">
-                  <el-tag :type="row.procurementFlag ? 'success' : 'info'" size="small">
-                    {{ row.procurementFlag ? '是' : '否' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="remark" label="备注" min-width="150" />
-            </el-table>
+        <div class="card-title" @click="toggleBreakdownCard">
+          <div class="card-title-left">
+            <el-icon class="collapse-icon" :class="{ 'is-expanded': breakdownCardExpanded }">
+              <ArrowRight />
+            </el-icon>
+            工艺分解结果
+          </div>
+          <div class="card-actions" @click.stop>
+            <el-button 
+              v-if="contract.status === 'DRAFT'"
+              type="success" 
+              size="small" 
+              @click="startBreakdown"
+              :loading="processing"
+            >
+              开始分解
+            </el-button>
+            <el-button 
+              v-if="contract.status === 'COMPLETED'"
+              type="primary" 
+              size="small" 
+              @click="exportBreakdown"
+            >
+              导出分解表
+            </el-button>
           </div>
         </div>
         
-        <div v-else class="empty-state">
-          <el-empty description="暂无分解结果" />
+        <div v-show="breakdownCardExpanded" class="card-content">
+          <div v-if="breakdownLoading" class="loading-state">
+            <el-skeleton :rows="5" animated />
+          </div>
+          <div v-else-if="breakdownResult">
+            <el-alert
+              :title="breakdownResult.message"
+              :type="breakdownResult.success ? 'success' : 'error'"
+              :closable="false"
+              style="margin-bottom: 20px;"
+            />
+            
+            <div v-if="breakdownResult.breakdownData">
+              <!-- 这里显示分解表数据 -->
+              <el-table :data="breakdownResult.breakdownData" stripe>
+                <el-table-column prop="containerName" label="所属箱包" width="150" />
+                <el-table-column prop="componentCode" label="部件代号" width="150" />
+                <el-table-column prop="componentName" label="部件名称" min-width="200" />
+                <el-table-column prop="quantity" label="数量" width="80" align="center" />
+                <el-table-column prop="erpCode" label="ERP代码" width="120" />
+                <el-table-column prop="procurementFlag" label="是否外购" width="100" align="center">
+                  <template #default="{ row }">
+                    <el-tag :type="row.procurementFlag ? 'success' : 'info'" size="small">
+                      {{ row.procurementFlag ? '是' : '否' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="remark" label="备注" min-width="150" />
+              </el-table>
+            </div>
+          </div>
+          <div v-else class="empty-state">
+            <el-empty description="暂无分解结果" />
+          </div>
         </div>
       </div>
     </div>
@@ -355,6 +375,18 @@ const cloneForm = ref({
 })
 const availableContracts = ref([])
 
+// 卡片折叠状态
+const containersCardExpanded = ref(false)
+const breakdownCardExpanded = ref(false)
+
+// 异步加载状态
+const containersLoading = ref(false)
+const breakdownLoading = ref(false)
+
+// 数据加载标记
+const containersLoaded = ref(false)
+const breakdownLoaded = ref(false)
+
 const getStatusType = (status) => {
   const statusMap = {
     'DRAFT': '',
@@ -385,10 +417,7 @@ const loadContract = async () => {
     const contractId = route.params.id
     contract.value = await contractsApi.getContract(contractId)
     
-    // 加载分解结果
-    if (contract.value.status !== 'DRAFT') {
-      await loadBreakdownResult()
-    }
+    // 不再自动加载装箱单和分解结果，等待用户点击展开时再加载
   } catch (error) {
     ElMessage.error('加载合同详情失败')
   } finally {
@@ -402,6 +431,45 @@ const loadBreakdownResult = async () => {
     breakdownResult.value = await contractsApi.getBreakdownResult(contractId)
   } catch (error) {
     console.error('加载分解结果失败:', error)
+  }
+}
+
+// 切换装箱单卡片
+const toggleContainersCard = async () => {
+  containersCardExpanded.value = !containersCardExpanded.value
+  
+  // 如果展开且未加载过数据，则异步加载
+  if (containersCardExpanded.value && !containersLoaded.value) {
+    containersLoading.value = true
+    try {
+      // 重新加载合同数据以获取装箱单信息
+      await loadContract()
+      containersLoaded.value = true
+    } catch (error) {
+      console.error('加载装箱单数据失败:', error)
+      ElMessage.error('加载装箱单数据失败')
+    } finally {
+      containersLoading.value = false
+    }
+  }
+}
+
+// 切换工艺分解结果卡片
+const toggleBreakdownCard = async () => {
+  breakdownCardExpanded.value = !breakdownCardExpanded.value
+  
+  // 如果展开且未加载过数据，则异步加载
+  if (breakdownCardExpanded.value && !breakdownLoaded.value) {
+    breakdownLoading.value = true
+    try {
+      await loadBreakdownResult()
+      breakdownLoaded.value = true
+    } catch (error) {
+      console.error('加载分解结果失败:', error)
+      ElMessage.error('加载分解结果失败')
+    } finally {
+      breakdownLoading.value = false
+    }
   }
 }
 
@@ -686,11 +754,44 @@ onMounted(() => {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background-color: #f5f7fa;
+        border-radius: 4px;
+        padding: 8px;
+        margin: -8px -8px 8px -8px;
+      }
+      
+      .card-title-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        
+        .collapse-icon {
+          transition: transform 0.3s ease;
+          font-size: 14px;
+          color: #909399;
+          
+          &.is-expanded {
+            transform: rotate(90deg);
+          }
+        }
+      }
       
       .card-actions {
         display: flex;
         gap: 8px;
       }
+    }
+    
+    .card-content {
+      animation: slideDown 0.3s ease-out;
+    }
+    
+    .loading-state {
+      padding: 20px 0;
     }
   }
   
@@ -752,6 +853,17 @@ onMounted(() => {
       margin: 5px 0;
       font-size: 14px;
     }
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>
