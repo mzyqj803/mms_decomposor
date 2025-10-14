@@ -33,7 +33,6 @@ public class Contracts extends BaseEntity {
     
     // 一对多关系：合同参数
     @OneToMany(mappedBy = "contract", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore
     private List<ContractParameters> parameters;
     
     // 一对多关系：装箱组件汇总

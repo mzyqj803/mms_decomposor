@@ -8,9 +8,11 @@ import com.mms.repository.ContainersRepository;
 import com.mms.repository.ContainerComponentsRepository;
 import com.mms.repository.ContainersComponentsSummaryRepository;
 import com.mms.repository.ContainerComponentsBreakdownRepository;
+import com.mms.repository.ContainerComponentsBreakdownProblemsRepository;
 import com.mms.repository.ContractsRepository;
 import com.mms.service.CacheService;
 import com.mms.service.ContainerUploadService;
+import com.mms.service.ContractParametersService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -34,8 +36,10 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
     private final ContainerComponentsRepository containerComponentsRepository;
     private final ContainersComponentsSummaryRepository containersComponentsSummaryRepository;
     private final ContainerComponentsBreakdownRepository containerComponentsBreakdownRepository;
+    private final ContainerComponentsBreakdownProblemsRepository containerComponentsBreakdownProblemsRepository;
     private final ContractsRepository contractsRepository;
     private final CacheService cacheService;
+    private final ContractParametersService contractParametersService;
     
     @Override
     public Map<String, Object> previewExcelFile(MultipartFile file) {
@@ -80,6 +84,9 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
             
             // 解析Excel文件
             List<ContainerData> containerDataList = parseExcelFile(file);
+            
+            // 解析并保存合同参数
+            parseAndSaveContractParameters(contractId, file);
             
             // 创建装箱单（createContainer方法内部已经处理保存逻辑）
             List<Containers> savedContainers = new ArrayList<>();
@@ -523,26 +530,32 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
     
     /**
      * 清除指定合同下的所有相关数据
-     * 包括：containers, container_components, containers_components_summary, container_components_breakdown
+     * 按照外键约束的正确顺序删除：先删除子表，再删除父表
+     * 包括：container_components_breakdown_problems, container_components_breakdown, 
+     *       container_components, containers_components_summary, containers
      */
     @Transactional
     public void clearContractData(Long contractId) {
         try {
             log.info("开始清除合同ID={}的相关数据", contractId);
             
-            // 删除分解记录
+            // 1. 删除问题部件记录 (引用 containers)
+            containerComponentsBreakdownProblemsRepository.deleteByContractId(contractId);
+            log.info("已删除合同ID={}的问题部件记录", contractId);
+            
+            // 2. 删除分解记录 (引用 containers)
             containerComponentsBreakdownRepository.deleteByContractId(contractId);
             log.info("已删除合同ID={}的分解记录", contractId);
             
-            // 删除汇总记录
-            containersComponentsSummaryRepository.deleteByContractId(contractId);
-            log.info("已删除合同ID={}的汇总记录", contractId);
-            
-            // 删除组件记录
+            // 3. 删除组件记录 (引用 containers)
             containerComponentsRepository.deleteByContractId(contractId);
             log.info("已删除合同ID={}的组件记录", contractId);
             
-            // 删除装箱单记录
+            // 4. 删除汇总记录 (引用 contracts)
+            containersComponentsSummaryRepository.deleteByContractId(contractId);
+            log.info("已删除合同ID={}的汇总记录", contractId);
+            
+            // 5. 删除装箱单记录 (引用 contracts)
             containersRepository.deleteByContractId(contractId);
             log.info("已删除合同ID={}的装箱单记录", contractId);
             
@@ -565,5 +578,90 @@ public class ContainerUploadServiceImpl implements ContainerUploadService {
         } catch (Exception e) {
             log.warn("清除合同ID={}的箱包缓存失败: {}", contractId, e.getMessage());
         }
+    }
+    
+    /**
+     * 解析并保存合同参数
+     * 读取Excel文件的第二个sheet或名为"合同参数"的sheet
+     * A列是参数名，B列是参数值
+     */
+    private void parseAndSaveContractParameters(Long contractId, MultipartFile file) {
+        try {
+            List<ContractParameters> parameters = parseContractParametersFromExcel(file);
+            
+            if (!parameters.isEmpty()) {
+                // 先删除现有的合同参数
+                contractParametersService.deleteContractParameters(contractId);
+                
+                // 保存新的合同参数
+                contractParametersService.saveContractParameters(contractId, parameters);
+                
+                log.info("成功解析并保存合同参数: 合同ID={}, 参数数量={}", contractId, parameters.size());
+            } else {
+                log.info("未找到合同参数数据: 合同ID={}", contractId);
+            }
+            
+        } catch (Exception e) {
+            log.warn("解析合同参数失败: 合同ID={}, 错误: {}", contractId, e.getMessage());
+            // 不抛出异常，避免影响装箱单的正常上传
+        }
+    }
+    
+    /**
+     * 从Excel文件中解析合同参数
+     */
+    private List<ContractParameters> parseContractParametersFromExcel(MultipartFile file) throws IOException {
+        List<ContractParameters> parameters = new ArrayList<>();
+        
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet paramsSheet = null;
+            
+            // 尝试获取第二个sheet
+            if (workbook.getNumberOfSheets() >= 2) {
+                paramsSheet = workbook.getSheetAt(1);
+                log.info("使用第二个sheet解析合同参数: {}", paramsSheet.getSheetName());
+            }
+            
+            // 如果没有第二个sheet，尝试查找名为"合同参数"的sheet
+            if (paramsSheet == null) {
+                for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                    Sheet sheet = workbook.getSheetAt(i);
+                    if ("合同参数".equals(sheet.getSheetName())) {
+                        paramsSheet = sheet;
+                        log.info("找到合同参数sheet: {}", sheet.getSheetName());
+                        break;
+                    }
+                }
+            }
+            
+            // 如果找到了参数sheet，解析参数
+            if (paramsSheet != null) {
+                for (Row row : paramsSheet) {
+                    if (row == null) continue;
+                    
+                    String paramName = getCellStringValue(row.getCell(0)); // A列：参数名
+                    String paramValue = getCellStringValue(row.getCell(1)); // B列：参数值
+                    
+                    // 验证参数名不为空（参数值可以为空）
+                    if (paramName != null && !paramName.trim().isEmpty()) {
+                        ContractParameters parameter = new ContractParameters();
+                        parameter.setParamName(paramName.trim());
+                        // 如果参数值为空或null，则存储null
+                        if (paramValue != null && !paramValue.trim().isEmpty()) {
+                            parameter.setParamValue(paramValue.trim());
+                        } else {
+                            parameter.setParamValue(null);
+                        }
+                        parameters.add(parameter);
+                    }
+                }
+                
+                log.info("从Excel文件中解析到{}个合同参数", parameters.size());
+            } else {
+                log.info("Excel文件中未找到合同参数sheet");
+            }
+        }
+        
+        return parameters;
     }
 }

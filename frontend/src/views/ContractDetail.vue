@@ -31,27 +31,36 @@
       
       <!-- 合同参数 -->
       <div class="info-card">
-        <div class="card-title">
-          合同参数
-          <el-button 
-            type="primary" 
-            size="small" 
-            @click="showEditParamsDialog"
-          >
-            <el-icon><Edit /></el-icon>
-            编辑参数
-          </el-button>
+        <div class="card-title" @click="toggleParamsCard">
+          <div class="card-title-left">
+            <el-icon class="collapse-icon" :class="{ 'is-expanded': paramsCardExpanded }">
+              <ArrowRight />
+            </el-icon>
+            合同参数
+          </div>
+          <div class="card-actions" @click.stop>
+            <el-button 
+              type="primary" 
+              size="small" 
+              @click="showEditParamsDialog"
+            >
+              <el-icon><Edit /></el-icon>
+              编辑参数
+            </el-button>
+          </div>
         </div>
         
-        <div v-if="contract.parameters && contract.parameters.length > 0">
-          <el-table :data="contract.parameters" stripe>
-            <el-table-column prop="paramName" label="参数名称" />
-            <el-table-column prop="paramValue" label="参数值" />
-          </el-table>
-        </div>
-        
-        <div v-else class="empty-state">
-          <el-empty description="暂无合同参数" />
+        <div v-show="paramsCardExpanded" class="card-content">
+          <div v-if="contract.parameters && contract.parameters.length > 0">
+            <el-table :data="contract.parameters" stripe>
+              <el-table-column prop="paramName" label="参数名称" />
+              <el-table-column prop="paramValue" label="参数值" />
+            </el-table>
+          </div>
+          
+          <div v-else class="empty-state">
+            <el-empty description="暂无合同参数" />
+          </div>
         </div>
       </div>
       
@@ -376,6 +385,7 @@ const cloneForm = ref({
 const availableContracts = ref([])
 
 // 卡片折叠状态
+const paramsCardExpanded = ref(false)
 const containersCardExpanded = ref(false)
 const breakdownCardExpanded = ref(false)
 
@@ -411,11 +421,24 @@ const formatDate = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 }
 
+// 切换合同参数卡片
+const toggleParamsCard = () => {
+  paramsCardExpanded.value = !paramsCardExpanded.value
+}
+
 const loadContract = async () => {
   loading.value = true
   try {
     const contractId = route.params.id
     contract.value = await contractsApi.getContract(contractId)
+    
+    // 检查是否有装箱单信息，如果没有则自动弹出上传装箱单窗口
+    if (!contract.value.containers || contract.value.containers.length === 0) {
+      // 延迟一点时间确保页面完全加载后再弹出窗口
+      setTimeout(() => {
+        uploadDialogVisible.value = true
+      }, 500)
+    }
     
     // 不再自动加载装箱单和分解结果，等待用户点击展开时再加载
   } catch (error) {
@@ -651,6 +674,24 @@ const uploadFile = async () => {
       ElMessage.success(`上传成功！共创建 ${response.count} 个装箱单`)
       uploadDialogVisible.value = false
       await loadContract() // 重新加载合同数据
+      
+      // 上传成功后自动开始工艺分解
+      try {
+        processing.value = true
+        const breakdownResult = await contractsApi.startBreakdown(contractId)
+        
+        if (breakdownResult.success) {
+          ElMessage.success('装箱单上传成功，工艺分解已自动开始')
+          await loadContract() // 重新加载合同数据以更新状态
+        } else {
+          ElMessage.warning(`装箱单上传成功，但工艺分解启动失败：${breakdownResult.message}`)
+        }
+      } catch (breakdownError) {
+        console.error('自动开始工艺分解失败:', breakdownError)
+        ElMessage.warning('装箱单上传成功，但工艺分解启动失败')
+      } finally {
+        processing.value = false
+      }
     } else {
       ElMessage.error(response.message)
     }
