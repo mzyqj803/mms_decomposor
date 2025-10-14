@@ -499,14 +499,15 @@ const handleSubmit = async () => {
         if (contractForm.id) {
           await contractsApi.updateContract(contractForm.id, contractData)
           ElMessage.success('合同更新成功')
+          dialogVisible.value = false
+          loadContracts()
         } else {
           const response = await contractsApi.createContract(contractData)
-          contractForm.id = response.id
           ElMessage.success('合同创建成功')
+          dialogVisible.value = false
+          // 跳转到新创建的合同详情页面
+          router.push(`/contracts/${response.id}`)
         }
-        
-        dialogVisible.value = false
-        loadContracts()
       } catch (error) {
         console.error('操作失败:', error)
         ElMessage.error('操作失败')
