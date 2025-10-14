@@ -223,30 +223,49 @@ public class ContractsServiceImpl implements ContractsService {
         return distributedLockService.executeWithLock(lockKey, 10, 30, TimeUnit.SECONDS, () -> {
             Contracts contract = getContractById(contractId);
             
-            if (contract.getStatus() != Contracts.ContractStatus.DRAFT) {
-                throw new RuntimeException("只有草稿状态的合同才能开始工艺分解");
-            }
+            // 检查合同状态，允许重新分解
+            // if (contract.getStatus() != Contracts.ContractStatus.DRAFT) {
+            //     throw new RuntimeException("只有草稿状态的合同才能开始工艺分解");
+            // }
             
             // 更新合同状态为处理中
             contract.setStatus(Contracts.ContractStatus.PROCESSING);
             contractsRepository.save(contract);
             
-            // TODO: 异步执行工艺分解任务
-            // 1. 获取装箱单数据
-            // 2. 根据零部件关系进行分解
-            // 3. 生成合并分解表
-            // 4. 更新合同状态
-            
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("message", "工艺分解已开始");
-            result.put("status", "PROCESSING");
-            
-            // 清除相关缓存
-            clearContractCache(contractId);
-            
-            log.info("合同 {} 开始工艺分解", contract.getContractNo());
-            return result;
+            try {
+                // 执行实际的工艺分解任务
+                Map<String, Object> breakdownResult = breakdownService.breakdownContract(contractId);
+                
+                // 分解完成后，合同状态已经在breakdownService.breakdownContract中更新为COMPLETED
+                // 清除相关缓存
+                clearContractCache(contractId);
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("success", true);
+                result.put("message", "工艺分解已完成");
+                result.put("status", "COMPLETED");
+                result.put("breakdownResult", breakdownResult);
+                
+                log.info("合同 {} 工艺分解完成", contract.getContractNo());
+                return result;
+                
+            } catch (Exception e) {
+                // 如果分解失败，将合同状态设置为错误
+                contract.setStatus(Contracts.ContractStatus.ERROR);
+                contractsRepository.save(contract);
+                
+                log.error("合同 {} 工艺分解失败", contract.getContractNo(), e);
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("success", false);
+                result.put("message", "工艺分解失败: " + e.getMessage());
+                result.put("status", "ERROR");
+                
+                // 清除相关缓存
+                clearContractCache(contractId);
+                
+                return result;
+            }
         });
     }
     

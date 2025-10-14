@@ -12,7 +12,81 @@
       <el-skeleton :rows="10" animated />
     </div>
     
-    <div v-else-if="contract" class="detail-content">
+  <div v-else-if="contract" class="detail-content">
+      
+      <!-- 页面操作菜单栏 -->
+      <div class="action-menu-bar">
+        <div class="menu-group">
+          <span class="group-label">编辑合同</span>
+          <el-button-group>
+            <el-button @click="openEditContractDialog" size="small">
+              <el-icon><Edit /></el-icon>
+              更改合同信息
+            </el-button>
+            <el-button @click="showEditParamsDialog" size="small">
+              <el-icon><Setting /></el-icon>
+              编辑合同参数
+            </el-button>
+            <el-button @click="showCloneDialog" size="small">
+              <el-icon><CopyDocument /></el-icon>
+              克隆合同
+            </el-button>
+            <el-button @click="handleDeleteContract" :disabled="deleting" size="small" type="danger">
+              <el-icon><Delete /></el-icon>
+              删除合同
+            </el-button>
+          </el-button-group>
+        </div>
+        
+        <div class="menu-group">
+          <span class="group-label">工艺分解</span>
+          <el-button-group>
+            <el-button @click="openViewContainers" size="small" type="primary">
+              <el-icon><View /></el-icon>
+              查看装箱单
+            </el-button>
+            <el-button @click="showUploadDialog" size="small" type="primary">
+              <el-icon><Upload /></el-icon>
+              上传装箱单
+            </el-button>
+            <el-button @click="openViewBreakdown" size="small" type="primary">
+              <el-icon><Document /></el-icon>
+              查看工艺分解
+            </el-button>
+            <el-button @click="startBreakdown" :disabled="processing" size="small" type="primary">
+              <el-icon><VideoPlay /></el-icon>
+              执行工艺分解
+            </el-button>
+            <el-button @click="downloadBreakdownTable" :disabled="contract.status !== 2" size="small" type="success">
+              <el-icon><Download /></el-icon>
+              下载工艺分解合并表
+            </el-button>
+          </el-button-group>
+        </div>
+        
+        <div class="menu-group">
+          <span class="group-label">生产执行</span>
+          <el-button-group>
+            <el-button @click="openProductionPlan" size="small">
+              <el-icon><Calendar /></el-icon>
+              查看生产计划
+            </el-button>
+            <el-button @click="generateProductionPlan" size="small">
+              <el-icon><Plus /></el-icon>
+              生成生产计划
+            </el-button>
+            <el-button @click="openInventory" size="small">
+              <el-icon><Box /></el-icon>
+              零部件库存
+            </el-button>
+            <el-button @click="openCostAnalysis" size="small">
+              <el-icon><TrendCharts /></el-icon>
+              成本分析
+            </el-button>
+          </el-button-group>
+        </div>
+      </div>
+      
       <!-- 合同基本信息 -->
       <div class="info-card">
         <div class="card-title">合同信息</div>
@@ -28,6 +102,31 @@
           <el-descriptions-item label="创建时间">{{ formatDate(contract.entryTs) }}</el-descriptions-item>
         </el-descriptions>
       </div>
+
+      <!-- 编辑合同信息对话框 -->
+      <el-dialog
+        v-model="editContractDialogVisible"
+        title="更改合同信息"
+        width="600px"
+      >
+        <el-form :model="editContractForm" label-width="100px">
+          <el-form-item label="合同号">
+            <el-input v-model="editContractForm.contractNo" />
+          </el-form-item>
+          <el-form-item label="客户名称">
+            <el-input v-model="editContractForm.clientName" />
+          </el-form-item>
+          <el-form-item label="项目名称">
+            <el-input v-model="editContractForm.projectName" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="editContractDialogVisible = false">取 消</el-button>
+            <el-button type="primary" :loading="saving" @click="saveContractInfo">保 存</el-button>
+          </span>
+        </template>
+      </el-dialog>
       
       <!-- 合同参数 -->
       <div class="info-card">
@@ -36,7 +135,7 @@
             <el-icon class="collapse-icon" :class="{ 'is-expanded': paramsCardExpanded }">
               <ArrowRight />
             </el-icon>
-            合同参数
+            合同参数 (点击查看)
           </div>
           <div class="card-actions" @click.stop>
             <el-button 
@@ -71,7 +170,7 @@
             <el-icon class="collapse-icon" :class="{ 'is-expanded': containersCardExpanded }">
               <ArrowRight />
             </el-icon>
-            装箱单信息
+            装箱单信息 (点击查看)
           </div>
           <div class="card-actions" @click.stop>
             <el-button 
@@ -134,7 +233,7 @@
             <el-icon class="collapse-icon" :class="{ 'is-expanded': breakdownCardExpanded }">
               <ArrowRight />
             </el-icon>
-            工艺分解结果
+            工艺分解结果 (点击查看)
           </div>
           <div class="card-actions" @click.stop>
             <el-button 
@@ -384,6 +483,65 @@ const cloneForm = ref({
 })
 const availableContracts = ref([])
 
+// 顶部菜单交互状态
+const editContractDialogVisible = ref(false)
+const editContractForm = ref({ contractNo: '', clientName: '', projectName: '' })
+const saving = ref(false)
+const deleting = ref(false)
+
+const openEditContractDialog = () => {
+  if (!contract.value) return
+  editContractForm.value = {
+    contractNo: contract.value.contractNo || '',
+    clientName: contract.value.clientName || '',
+    projectName: contract.value.projectName || ''
+  }
+  editContractDialogVisible.value = true
+}
+
+const saveContractInfo = async () => {
+  try {
+    if (!contract.value) return
+    saving.value = true
+    const payload = {
+      ...contract.value,
+      contractNo: editContractForm.value.contractNo,
+      clientName: editContractForm.value.clientName,
+      projectName: editContractForm.value.projectName
+    }
+    await contractsApi.updateContract(contract.value.id, payload)
+    ElMessage.success('合同信息已更新')
+    editContractDialogVisible.value = false
+    await loadContract()
+  } catch (e) {
+    ElMessage.error('更新合同信息失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+const handleDeleteContract = async () => {
+  if (!contract.value) return
+  try {
+    deleting.value = true
+    await contractsApi.deleteContract(contract.value.id)
+    ElMessage.success('合同已删除')
+    router.push('/contracts')
+  } catch (e) {
+    ElMessage.error('删除失败')
+  } finally {
+    deleting.value = false
+  }
+}
+
+// 菜单占位函数
+const openViewContainers = () => { containersCardExpanded.value = true }
+const openViewBreakdown = () => { breakdownCardExpanded.value = true }
+const openProductionPlan = () => { ElMessage.info('查看生产计划（待实现）') }
+const generateProductionPlan = () => { ElMessage.info('生成生产计划（待实现）') }
+const openInventory = () => { ElMessage.info('零部件库存（待实现）') }
+const openCostAnalysis = () => { ElMessage.info('成本分析（待实现）') }
+
 // 卡片折叠状态
 const paramsCardExpanded = ref(false)
 const containersCardExpanded = ref(false)
@@ -397,24 +555,41 @@ const breakdownLoading = ref(false)
 const containersLoaded = ref(false)
 const breakdownLoaded = ref(false)
 
+// 将后端返回的状态标准化为字符串键值
+const toStatusKey = (status) => {
+  if (typeof status === 'number') {
+    switch (status) {
+      case 0: return 'DRAFT'
+      case 1: return 'PROCESSING'
+      case 2: return 'COMPLETED'
+      case 3: return 'ERROR'
+      default: return 'DRAFT'
+    }
+  }
+  if (!status) return 'DRAFT'
+  return String(status).toUpperCase()
+}
+
 const getStatusType = (status) => {
+  const key = toStatusKey(status)
   const statusMap = {
     'DRAFT': '',
     'PROCESSING': 'warning',
     'COMPLETED': 'success',
     'ERROR': 'danger'
   }
-  return statusMap[status] || ''
+  return statusMap[key] || ''
 }
 
 const getStatusText = (status) => {
+  const key = toStatusKey(status)
   const statusMap = {
     'DRAFT': '草稿',
     'PROCESSING': '处理中',
-    'COMPLETED': '已完成',
+    'COMPLETED': '工艺分解成功',
     'ERROR': '错误'
   }
-  return statusMap[status] || status
+  return statusMap[key] || '未知'
 }
 
 const formatDate = (date) => {
@@ -553,6 +728,29 @@ const exportBreakdown = async () => {
     ElMessage.success('导出成功')
   } catch (error) {
     ElMessage.error('导出失败')
+  }
+}
+
+const downloadBreakdownTable = async () => {
+  try {
+    const contractId = route.params.id
+    const response = await contractsApi.exportBreakdown(contractId, 'pdf')
+    
+    // 创建下载链接
+    const blob = new Blob([response], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `工艺分解合并表_${contract.value.contractNo}_${dayjs().format('YYYY-MM-DD')}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success('下载成功')
+  } catch (error) {
+    console.error('下载失败:', error)
+    ElMessage.error('下载失败')
   }
 }
 
@@ -752,6 +950,34 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.action-menu-bar {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.menu-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.group-label {
+  font-weight: 600;
+  color: #495057;
+  min-width: 80px;
+  font-size: 14px;
+}
+
+.el-button-group {
+  display: flex;
+  gap: 4px;
+}
 .contract-detail {
   padding: 20px;
 }

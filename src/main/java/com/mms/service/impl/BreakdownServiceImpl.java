@@ -16,6 +16,7 @@ import java.util.*;
 import java.io.ByteArrayOutputStream;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
@@ -810,6 +811,22 @@ public class BreakdownServiceImpl implements BreakdownService {
             List<ContainersComponentsSummary> summaries = containersComponentsSummaryRepository.findByContractId(contractId);
             List<ContainerComponentsBreakdownProblems> problems = problemsRepository.findByContractId(contractId);
             
+            // 获取所有分解记录用于查找ERP代码
+            List<ContainerComponentsBreakdown> allBreakdowns = breakdownRepository.findByContractId(contractId);
+            
+            // 创建分解ID到ERP代码的映射
+            Map<Long, String> breakdownToErpCodeMap = new HashMap<>();
+            for (ContainerComponentsBreakdown breakdown : allBreakdowns) {
+                try {
+                    List<ContainerComponentsBreakdownErp> erpRecords = breakdownErpService.findByBreakdownId(breakdown.getId());
+                    if (!erpRecords.isEmpty()) {
+                        breakdownToErpCodeMap.put(breakdown.getId(), erpRecords.get(0).getErpCode());
+                    }
+                } catch (Exception e) {
+                    log.debug("获取分解记录 {} 的ERP代码失败: {}", breakdown.getId(), e.getMessage());
+                }
+            }
+            
             if (summaries.isEmpty() && problems.isEmpty()) {
                 throw new RuntimeException("没有找到合并分解数据");
             }
@@ -825,7 +842,10 @@ public class BreakdownServiceImpl implements BreakdownService {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             PdfWriter writer = new PdfWriter(outputStream);
             PdfDocument pdfDoc = new PdfDocument(writer);
-            Document document = new Document(pdfDoc);
+            
+            // 设置页面为横向
+            PageSize pageSize = PageSize.A4.rotate();
+            Document document = new Document(pdfDoc, pageSize);
             
             // 设置中文字体支持
             PdfFont font = PdfFontFactory.createFont("STSong-Light", "UniGB-UCS2-H");
@@ -850,13 +870,14 @@ public class BreakdownServiceImpl implements BreakdownService {
             document.add(contractInfo);
             
             // 创建表格
-            Table table = new Table(7).useAllAvailableWidth();
+            Table table = new Table(8).useAllAvailableWidth();
             table.setFont(font).setFontSize(10);
             
             // 添加表头
             table.addHeaderCell(new Cell().add(new Paragraph("序号").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
             table.addHeaderCell(new Cell().add(new Paragraph("所属箱包").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
             table.addHeaderCell(new Cell().add(new Paragraph("部件编号").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
+            table.addHeaderCell(new Cell().add(new Paragraph("ERP代码").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
             table.addHeaderCell(new Cell().add(new Paragraph("部件名称").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
             table.addHeaderCell(new Cell().add(new Paragraph("数量").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
             table.addHeaderCell(new Cell().add(new Paragraph("是否外购").setFont(boldFont)).setTextAlignment(TextAlignment.CENTER));
@@ -868,11 +889,37 @@ public class BreakdownServiceImpl implements BreakdownService {
             // 添加正常部件数据
             for (ContainersComponentsSummary summary : summaries) {
                 Components component = summary.getComponent();
+                
+                // 通过container和component查找对应的分解记录来获取ERP代码
+                String erpCode = "";
+            for (ContainerComponentsBreakdown breakdown : allBreakdowns) {
+                // 保护性空值判断，避免NPE
+                if (breakdown == null) {
+                    continue;
+                }
+                Containers bContainer = breakdown.getContainer();
+                Components bSub = breakdown.getSubComponent();
+                Containers sContainer = summary.getContainer();
+                if (bContainer == null || bSub == null || sContainer == null || component == null) {
+                    continue;
+                }
+                Long bContainerId = bContainer.getId();
+                Long bSubId = bSub.getId();
+                Long sContainerId = sContainer.getId();
+                Long compId = component.getId();
+                if (bContainerId != null && sContainerId != null && bSubId != null && compId != null &&
+                    bContainerId.equals(sContainerId) && bSubId.equals(compId)) {
+                    erpCode = breakdownToErpCodeMap.getOrDefault(breakdown.getId(), "");
+                    break;
+                }
+            }
+                
                 Map<String, Object> row = new HashMap<>();
                 row.put("type", "normal");
                 row.put("containerName", summary.getContainer() != null ? 
                     summary.getContainer().getName() : "未知箱包");
                 row.put("componentCode", component.getComponentCode());
+                row.put("erpCode", erpCode);
                 row.put("componentName", component.getName());
                 row.put("quantity", summary.getQuantity());
                 row.put("procurementFlag", component.getProcurementFlag());
@@ -880,14 +927,17 @@ public class BreakdownServiceImpl implements BreakdownService {
                 allRows.add(row);
             }
             
-            // 添加问题部件数据
+            // 添加问题部件数据（空值保护）
             for (ContainerComponentsBreakdownProblems problem : problems) {
                 Map<String, Object> row = new HashMap<>();
                 row.put("type", "problem");
-                row.put("containerName", problem.getContainer().getName());
-                row.put("componentCode", problem.getComponentNo());
+                String pContainerName = (problem.getContainer() != null && problem.getContainer().getName() != null)
+                        ? problem.getContainer().getName() : "未知箱包";
+                row.put("containerName", pContainerName);
+                row.put("componentCode", problem.getComponentNo() != null ? problem.getComponentNo() : "");
+                row.put("erpCode", "");
                 row.put("componentName", "未知部件");
-                row.put("quantity", problem.getQuantity());
+                row.put("quantity", problem.getQuantity() != null ? problem.getQuantity() : 0);
                 row.put("procurementFlag", false);
                 row.put("remark", "未知部件");
                 allRows.add(row);
@@ -915,7 +965,8 @@ public class BreakdownServiceImpl implements BreakdownService {
                 table.addCell(indexCell);
                 
                 // 箱包名称列
-                Cell containerCell = new Cell().add(new Paragraph((String) row.get("containerName")));
+                String containerName = (String) row.get("containerName");
+                Cell containerCell = new Cell().add(new Paragraph(containerName != null ? containerName : ""));
                 if (isProblemRow) {
                     containerCell.setBackgroundColor(ColorConstants.RED)
                             .setFontColor(ColorConstants.WHITE)
@@ -924,7 +975,8 @@ public class BreakdownServiceImpl implements BreakdownService {
                 table.addCell(containerCell);
                 
                 // 部件编号列
-                Cell codeCell = new Cell().add(new Paragraph((String) row.get("componentCode")));
+                String componentCode = (String) row.get("componentCode");
+                Cell codeCell = new Cell().add(new Paragraph(componentCode != null ? componentCode : ""));
                 if (isProblemRow) {
                     codeCell.setBackgroundColor(ColorConstants.RED)
                             .setFontColor(ColorConstants.WHITE)
@@ -932,8 +984,19 @@ public class BreakdownServiceImpl implements BreakdownService {
                 }
                 table.addCell(codeCell);
                 
+                // ERP代码列
+                String erpCode = (String) row.get("erpCode");
+                Cell erpCodeCell = new Cell().add(new Paragraph(erpCode != null ? erpCode : ""));
+                if (isProblemRow) {
+                    erpCodeCell.setBackgroundColor(ColorConstants.RED)
+                            .setFontColor(ColorConstants.WHITE)
+                            .setFont(boldFont);
+                }
+                table.addCell(erpCodeCell);
+                
                 // 部件名称列
-                Cell nameCell = new Cell().add(new Paragraph((String) row.get("componentName")));
+                String componentName = (String) row.get("componentName");
+                Cell nameCell = new Cell().add(new Paragraph(componentName != null ? componentName : ""));
                 if (isProblemRow) {
                     nameCell.setBackgroundColor(ColorConstants.RED)
                             .setFontColor(ColorConstants.WHITE)
@@ -942,7 +1005,9 @@ public class BreakdownServiceImpl implements BreakdownService {
                 table.addCell(nameCell);
                 
                 // 数量列
-                Cell quantityCell = new Cell().add(new Paragraph(String.valueOf(row.get("quantity")))).setTextAlignment(TextAlignment.CENTER);
+                Object quantityObj = row.get("quantity");
+                String quantityStr = quantityObj != null ? String.valueOf(quantityObj) : "0";
+                Cell quantityCell = new Cell().add(new Paragraph(quantityStr)).setTextAlignment(TextAlignment.CENTER);
                 if (isProblemRow) {
                     quantityCell.setBackgroundColor(ColorConstants.RED)
                             .setFontColor(ColorConstants.WHITE)
@@ -951,8 +1016,13 @@ public class BreakdownServiceImpl implements BreakdownService {
                 table.addCell(quantityCell);
                 
                 // 是否外购列
-                String procurementText = "normal".equals(row.get("type")) ? 
-                    ((Boolean) row.get("procurementFlag") ? "是" : "否") : "未知";
+                String procurementText;
+                if ("normal".equals(row.get("type"))) {
+                    Boolean procurementFlag = (Boolean) row.get("procurementFlag");
+                    procurementText = procurementFlag != null ? (procurementFlag ? "是" : "否") : "未知";
+                } else {
+                    procurementText = "未知";
+                }
                 Cell procurementCell = new Cell().add(new Paragraph(procurementText)).setTextAlignment(TextAlignment.CENTER);
                 if (isProblemRow) {
                     procurementCell.setBackgroundColor(ColorConstants.RED)
@@ -962,7 +1032,8 @@ public class BreakdownServiceImpl implements BreakdownService {
                 table.addCell(procurementCell);
                 
                 // 备注列
-                Cell remarkCell = new Cell().add(new Paragraph((String) row.get("remark"))).setTextAlignment(TextAlignment.CENTER);
+                String remark = (String) row.get("remark");
+                Cell remarkCell = new Cell().add(new Paragraph(remark != null ? remark : "")).setTextAlignment(TextAlignment.CENTER);
                 if (isProblemRow) {
                     remarkCell.setBackgroundColor(ColorConstants.RED)
                             .setFontColor(ColorConstants.WHITE)

@@ -286,7 +286,7 @@ const getStatusText = (status) => {
   const statusMap = {
     0: '草稿',       // DRAFT
     1: '处理中',     // PROCESSING
-    2: '完成工艺分解', // COMPLETED
+    2: '工艺分解成功', // COMPLETED
     3: '错误'        // ERROR
   }
   return statusMap[status] || '未知'
