@@ -9,9 +9,7 @@
       <div class="table-header">
         <div class="header-left">
           <h3 class="header-title">装箱单列表</h3>
-        </div>
-        <div class="header-right">
-          <el-button type="primary" @click="handleCreate">
+          <el-button type="primary" @click="handleCreate" class="create-button">
             <el-icon><Plus /></el-icon>
             新建装箱单
           </el-button>
@@ -273,15 +271,22 @@ onMounted(() => {
   .table-header {
     padding: 20px;
     border-bottom: 1px solid #ebeef5;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     
-    .header-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #303133;
-      margin: 0;
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      
+      .header-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #303133;
+        margin: 0;
+      }
+      
+      .create-button {
+        align-self: flex-start;
+      }
     }
   }
   

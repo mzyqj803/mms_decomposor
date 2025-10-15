@@ -10,9 +10,7 @@
       <div class="table-header">
         <div class="header-left">
           <h3 class="header-title">合同列表</h3>
-        </div>
-        <div class="header-right">
-          <el-button type="primary" @click="handleCreate">
+          <el-button type="primary" @click="handleCreate" class="create-button">
             <el-icon><Plus /></el-icon>
             新建合同
           </el-button>
@@ -89,24 +87,26 @@
           </el-table-column>
           <el-table-column label="操作" width="280" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" size="small" @click="handleView(row)">
-                查看
-              </el-button>
-              <template v-if="row.status === 2">
-                <!-- 完成工艺分解状态：显示两个按钮 -->
-                <el-button type="success" size="small" @click="handleViewBreakdown(row)">
-                  查看工艺分解
+              <div class="operation-buttons">
+                <el-button type="primary" size="small" @click="handleView(row)">
+                  查看
                 </el-button>
-                <el-button type="warning" size="small" @click="handleDownloadBreakdown(row)">
-                  下载合并分解表
-                </el-button>
-              </template>
-              <template v-else>
-                <!-- 其他状态：显示原来的按钮 -->
-                <el-button type="success" size="small" @click="handleAction(row)">
-                  {{ getActionText(row) }}
-                </el-button>
-              </template>
+                <template v-if="row.status === 2">
+                  <!-- 完成工艺分解状态：显示两个按钮 -->
+                  <el-button type="success" size="small" @click="handleViewBreakdown(row)">
+                    查看工艺分解
+                  </el-button>
+                  <el-button type="warning" size="small" @click="handleDownloadBreakdown(row)">
+                    下载合并分解表
+                  </el-button>
+                </template>
+                <template v-else>
+                  <!-- 其他状态：显示原来的按钮 -->
+                  <el-button type="success" size="small" @click="handleAction(row)">
+                    {{ getActionText(row) }}
+                  </el-button>
+                </template>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -566,15 +566,22 @@ onMounted(() => {
   .table-header {
     padding: 20px;
     border-bottom: 1px solid #ebeef5;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     
-    .header-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #303133;
-      margin: 0;
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      
+      .header-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #303133;
+        margin: 0;
+      }
+      
+      .create-button {
+        align-self: flex-start;
+      }
     }
   }
   
@@ -621,6 +628,18 @@ onMounted(() => {
       align-items: center;
       gap: 5px;
     }
+  }
+}
+
+.operation-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  
+  .el-button {
+    margin: 0;
+    flex-shrink: 0;
   }
 }
 </style>

@@ -137,16 +137,16 @@
             </el-icon>
             合同参数 (点击查看)
           </div>
-          <div class="card-actions" @click.stop>
-            <el-button 
-              type="primary" 
-              size="small" 
-              @click="showEditParamsDialog"
-            >
-              <el-icon><Edit /></el-icon>
-              编辑参数
-            </el-button>
-          </div>
+        </div>
+        <div class="card-actions" @click.stop>
+          <el-button 
+            type="primary" 
+            size="small" 
+            @click="showEditParamsDialog"
+          >
+            <el-icon><Edit /></el-icon>
+            编辑参数
+          </el-button>
         </div>
         
         <div v-show="paramsCardExpanded" class="card-content">
@@ -172,33 +172,33 @@
             </el-icon>
             装箱单信息 (点击查看)
           </div>
-          <div class="card-actions" @click.stop>
-            <el-button 
-              type="primary" 
-              size="small" 
-              @click="showUploadDialog"
-            >
-              <el-icon><Upload /></el-icon>
-              上传装箱单
-            </el-button>
-            <el-button 
-              type="success" 
-              size="small" 
-              @click="showCloneDialog"
-            >
-              <el-icon><CopyDocument /></el-icon>
-              克隆装箱单
-            </el-button>
-            <el-button 
-              v-if="!contract.containers || contract.containers.length === 0"
-              type="primary" 
-              size="small" 
-              @click="generateContainer"
-              :loading="generating"
-            >
-              生成装箱单
-            </el-button>
-          </div>
+        </div>
+        <div class="card-actions" @click.stop>
+          <el-button 
+            type="primary" 
+            size="small" 
+            @click="showUploadDialog"
+          >
+            <el-icon><Upload /></el-icon>
+            上传装箱单
+          </el-button>
+          <el-button 
+            type="success" 
+            size="small" 
+            @click="showCloneDialog"
+          >
+            <el-icon><CopyDocument /></el-icon>
+            克隆装箱单
+          </el-button>
+          <el-button 
+            v-if="!contract.containers || contract.containers.length === 0"
+            type="primary" 
+            size="small" 
+            @click="generateContainer"
+            :loading="generating"
+          >
+            生成装箱单
+          </el-button>
         </div>
         
         <div v-show="containersCardExpanded" class="card-content">
@@ -235,25 +235,25 @@
             </el-icon>
             工艺分解结果 (点击查看)
           </div>
-          <div class="card-actions" @click.stop>
-            <el-button 
-              v-if="contract.status === 'DRAFT'"
-              type="success" 
-              size="small" 
-              @click="startBreakdown"
-              :loading="processing"
-            >
-              开始分解
-            </el-button>
-            <el-button 
-              v-if="contract.status === 'COMPLETED'"
-              type="primary" 
-              size="small" 
-              @click="exportBreakdown"
-            >
-              导出分解表
-            </el-button>
-          </div>
+        </div>
+        <div class="card-actions" @click.stop>
+          <el-button 
+            v-if="contract.status === 'DRAFT'"
+            type="success" 
+            size="small" 
+            @click="startBreakdown"
+            :loading="processing"
+          >
+            开始分解
+          </el-button>
+          <el-button 
+            v-if="contract.status === 'COMPLETED'"
+            type="primary" 
+            size="small" 
+            @click="exportBreakdown"
+          >
+            导出分解表
+          </el-button>
         </div>
         
         <div v-show="breakdownCardExpanded" class="card-content">
@@ -1018,9 +1018,6 @@ onMounted(() => {
       margin-bottom: 16px;
       padding-bottom: 8px;
       border-bottom: 1px solid #ebeef5;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       cursor: pointer;
       transition: all 0.3s ease;
       
@@ -1046,11 +1043,14 @@ onMounted(() => {
           }
         }
       }
-      
-      .card-actions {
-        display: flex;
-        gap: 8px;
-      }
+    }
+    
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #ebeef5;
     }
     
     .card-content {

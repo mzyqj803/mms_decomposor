@@ -10,10 +10,12 @@
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>当前合同信息</span>
-            <el-button type="primary" size="small" @click="clearSelection">
-              重新选择合同
-            </el-button>
+            <div class="card-title-section">
+              <span>当前合同信息</span>
+              <el-button type="primary" size="small" @click="clearSelection" class="card-action-button">
+                重新选择合同
+              </el-button>
+            </div>
           </div>
         </template>
         <div class="contract-info">
@@ -102,14 +104,16 @@
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>箱包选择 - {{ selectedContract.contractNo }}</span>
-            <div class="header-buttons">
-              <el-button type="success" @click="mergeBreakdownTables" :loading="mergeLoading" :disabled="selectedContainers.length === 0">
-                合并分解表
-              </el-button>
-              <el-button type="primary" @click="breakdownAllContainers" :loading="breakdownLoading">
-                全部分解
-              </el-button>
+            <div class="card-title-section">
+              <span>箱包选择 - {{ selectedContract.contractNo }}</span>
+              <div class="header-buttons">
+                <el-button type="success" @click="mergeBreakdownTables" :loading="mergeLoading" :disabled="selectedContainers.length === 0">
+                  合并分解表
+                </el-button>
+                <el-button type="primary" @click="breakdownAllContainers" :loading="breakdownLoading">
+                  全部分解
+                </el-button>
+              </div>
             </div>
           </div>
         </template>
@@ -167,10 +171,12 @@
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>分解结果</span>
-            <el-button type="success" @click="exportBreakdown" :loading="exportLoading">
-              导出汇总表
-            </el-button>
+            <div class="card-title-section">
+              <span>分解结果</span>
+              <el-button type="success" @click="exportBreakdown" :loading="exportLoading" class="card-action-button">
+                导出汇总表
+              </el-button>
+            </div>
           </div>
         </template>
         
@@ -995,9 +1001,15 @@ const clearSelection = () => {
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  .card-title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    
+    .card-action-button {
+      align-self: flex-start;
+    }
+  }
   
   .header-buttons {
     display: flex;
