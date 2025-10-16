@@ -11,12 +11,17 @@ public interface ContractsService {
     /**
      * 获取合同列表
      */
-    Page<Contracts> getContracts(String contractNo, String projectName, Contracts.ContractStatus status, Pageable pageable);
+    Page<Contracts> getContracts(String contractNo, String projectName, Integer status, Pageable pageable);
     
     /**
      * 根据ID获取合同
      */
     Contracts getContractById(Long id);
+    
+    /**
+     * 获取合同详情（包括已删除的合同，用于显示）
+     */
+    Contracts getContractByIdIncludeDeleted(Long id);
     
     /**
      * 创建合同
@@ -31,7 +36,7 @@ public interface ContractsService {
     /**
      * 删除合同
      */
-    void deleteContract(Long id);
+    void deleteContract(Long id, String contractNo);
     
     /**
      * 搜索合同

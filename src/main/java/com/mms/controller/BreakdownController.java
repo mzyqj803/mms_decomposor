@@ -108,10 +108,17 @@ public class BreakdownController {
             log.info("导出工艺分解表: contractId={}, format={}", contractId, format);
             byte[] fileBytes = breakdownService.exportBreakdown(contractId, format);
             
+            // 获取合同信息以生成正确的文件名
+            String contractNo = breakdownService.getContractNoById(contractId);
+            String fileName = String.format("%s_工艺分解合并表.%s", contractNo, format);
+            
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDispositionFormData("attachment", 
-                String.format("breakdown_%d.%s", contractId, format));
+            if ("pdf".equals(format)) {
+                headers.setContentType(MediaType.APPLICATION_PDF);
+            } else {
+                headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            }
+            headers.setContentDispositionFormData("attachment", fileName);
             
             return ResponseEntity.ok()
                 .headers(headers)
@@ -119,6 +126,39 @@ public class BreakdownController {
         } catch (Exception e) {
             log.error("导出工艺分解表失败: contractId={}, format={}, error={}", 
                 contractId, format, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * 导出工艺分解表（带文件名）
+     */
+    @GetMapping("/contract/{contractId}/export/{fileName}")
+    public ResponseEntity<byte[]> exportBreakdownWithFileName(
+            @PathVariable Long contractId,
+            @PathVariable String fileName,
+            @RequestParam(defaultValue = "excel") String format) {
+        try {
+            log.info("导出工艺分解表: contractId={}, fileName={}, format={}", contractId, fileName, format);
+            byte[] fileBytes = breakdownService.exportBreakdown(contractId, format);
+            
+            // URL解码文件名
+            String decodedFileName = java.net.URLDecoder.decode(fileName, "UTF-8");
+            
+            HttpHeaders headers = new HttpHeaders();
+            if ("pdf".equals(format)) {
+                headers.setContentType(MediaType.APPLICATION_PDF);
+            } else {
+                headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            }
+            headers.setContentDispositionFormData("attachment", decodedFileName);
+            
+            return ResponseEntity.ok()
+                .headers(headers)
+                .body(fileBytes);
+        } catch (Exception e) {
+            log.error("导出工艺分解表失败: contractId={}, fileName={}, format={}, error={}", 
+                contractId, fileName, format, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -151,17 +191,47 @@ public class BreakdownController {
             log.info("下载合并分解表PDF: contractId={}", contractId);
             byte[] pdfBytes = breakdownService.generateMergedBreakdownPdf(contractId);
             
+            // 获取合同信息以生成正确的文件名
+            String contractNo = breakdownService.getContractNoById(contractId);
+            String fileName = String.format("%s_合并分解表.pdf", contractNo);
+            
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", 
-                String.format("合并分解表_%d_%s.pdf", contractId, 
-                    java.time.LocalDate.now().toString()));
+            headers.setContentDispositionFormData("attachment", fileName);
             
             return ResponseEntity.ok()
                 .headers(headers)
                 .body(pdfBytes);
         } catch (Exception e) {
             log.error("下载合并分解表PDF失败: contractId={}, error={}", contractId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * 下载合并分解表PDF（带文件名）
+     */
+    @GetMapping("/merged/{contractId}/download/{fileName}")
+    public ResponseEntity<byte[]> downloadMergedBreakdownPdfWithFileName(
+            @PathVariable Long contractId, 
+            @PathVariable String fileName) {
+        try {
+            log.info("下载合并分解表PDF: contractId={}, fileName={}", contractId, fileName);
+            byte[] pdfBytes = breakdownService.generateMergedBreakdownPdf(contractId);
+            
+            // URL解码文件名
+            String decodedFileName = java.net.URLDecoder.decode(fileName, "UTF-8");
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", decodedFileName);
+            
+            return ResponseEntity.ok()
+                .headers(headers)
+                .body(pdfBytes);
+        } catch (Exception e) {
+            log.error("下载合并分解表PDF失败: contractId={}, fileName={}, error={}", 
+                contractId, fileName, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

@@ -36,7 +36,7 @@ public class ContractsServiceImpl implements ContractsService {
     private final BreakdownService breakdownService;
     
     @Override
-    public Page<Contracts> getContracts(String contractNo, String projectName, Contracts.ContractStatus status, Pageable pageable) {
+    public Page<Contracts> getContracts(String contractNo, String projectName, Integer status, Pageable pageable) {
         String cacheKey = String.format("contracts:%s:%s:%s:%d:%d", 
             contractNo, projectName, status, pageable.getPageNumber(), pageable.getPageSize());
         
@@ -75,8 +75,8 @@ public class ContractsServiceImpl implements ContractsService {
                 // 只有项目名称有值
                 contracts = contractsRepository.findByProjectNameContaining(projectName, pageable);
             } else {
-                // 都没有值，查询所有
-                contracts = contractsRepository.findAll(pageable);
+                // 都没有值，查询所有（排除已删除）
+                contracts = contractsRepository.findAllExcludeDeleted(pageable);
             }
         }
         
@@ -89,6 +89,40 @@ public class ContractsServiceImpl implements ContractsService {
     @Override
     public Contracts getContractById(Long id) {
         String cacheKey = "contract:" + id;
+        
+        Contracts cachedContract = cacheService.get(cacheKey, Contracts.class);
+        if (cachedContract != null) {
+            // 检查缓存的合同是否已删除
+            if (cachedContract.getStatus() == Contracts.ContractStatus.DELETED) {
+                throw new RuntimeException("合同已被删除");
+            }
+            return cachedContract;
+        }
+        
+        Contracts contract = contractsRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("合同不存在"));
+        
+        // 检查合同是否已删除
+        if (contract.getStatus() == Contracts.ContractStatus.DELETED) {
+            throw new RuntimeException("合同已被删除");
+        }
+        
+        // 确保装箱单数据被加载（由于使用了LAZY加载）
+        if (contract.getContainers() != null) {
+            contract.getContainers().size(); // 触发懒加载
+        }
+        
+        // 缓存10分钟
+        cacheService.set(cacheKey, contract, 10, TimeUnit.MINUTES);
+        
+        return contract;
+    }
+    
+    /**
+     * 获取合同详情（包括已删除的合同，用于显示）
+     */
+    public Contracts getContractByIdIncludeDeleted(Long id) {
+        String cacheKey = "contract:all:" + id;
         
         Contracts cachedContract = cacheService.get(cacheKey, Contracts.class);
         if (cachedContract != null) {
@@ -153,20 +187,27 @@ public class ContractsServiceImpl implements ContractsService {
     
     @Override
     @Transactional
-    public void deleteContract(Long id) {
+    public void deleteContract(Long id, String contractNo) {
         Contracts contract = getContractById(id);
         
-        if (contract.getStatus() == Contracts.ContractStatus.PROCESSING) {
-            throw new RuntimeException("处理中的合同不能删除");
+        // 验证合同号是否匹配
+        if (!contract.getContractNo().equals(contractNo)) {
+            throw new RuntimeException("合同号不匹配，删除操作被拒绝");
         }
         
-        contractsRepository.deleteById(id);
+        if (contract.getStatus() == Contracts.ContractStatus.PROCESSING) {
+            throw new RuntimeException("处理中的合同不能删除，请等待处理完成后再试");
+        }
+        
+        // 逻辑删除：将状态设置为已删除
+        contract.setStatus(Contracts.ContractStatus.DELETED);
+        contractsRepository.save(contract);
         
         // 清除相关缓存
         clearContractCache(id);
         clearContractsCache();
         
-        log.info("删除合同成功: {}", contract.getContractNo());
+        log.info("逻辑删除合同成功: {} (验证合同号: {})", contract.getContractNo(), contractNo);
     }
     
     @Override
@@ -342,7 +383,13 @@ public class ContractsServiceImpl implements ContractsService {
     
     private void clearContractsCache() {
         // 清除所有合同列表相关的缓存
-        // 这里可以使用Redis的keys命令或者维护一个缓存键的集合
+        // 使用通配符删除所有以"contracts:"开头的缓存键
+        try {
+            cacheService.deletePattern("contracts:*");
+            log.info("已清除所有合同列表缓存");
+        } catch (Exception e) {
+            log.warn("清除合同列表缓存失败: {}", e.getMessage());
+        }
     }
     
     @Override

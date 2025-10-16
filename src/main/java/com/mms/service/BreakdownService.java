@@ -61,4 +61,11 @@ public interface BreakdownService {
      * @return PDF文件字节数组
      */
     byte[] generateMergedBreakdownPdf(Long contractId);
+    
+    /**
+     * 根据合同ID获取合同号
+     * @param contractId 合同ID
+     * @return 合同号
+     */
+    String getContractNoById(Long contractId);
 }

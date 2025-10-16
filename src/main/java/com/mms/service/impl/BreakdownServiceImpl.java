@@ -408,6 +408,9 @@ public class BreakdownServiceImpl implements BreakdownService {
             result.put("procurementFlag", component.getProcurementFlag());
             result.put("commonPartsFlag", component.getCommonPartsFlag());
             
+            // 首先保存当前组件本身到分解表（即使没有子组件）
+            saveBreakdownRecord(containerComponent, component, containerComponent.getQuantity());
+            
             // 递归查找所有子部件，并保存到数据库
             Set<String> processedComponents = new HashSet<>(); // 防止循环引用
             processChildComponentsRecursively(component, containerComponent, processedComponents);
@@ -739,8 +742,20 @@ public class BreakdownServiceImpl implements BreakdownService {
      * 生成合并分解表PDF下载链接
      */
     private String generateMergedBreakdownPdfUrl(Long contractId, Map<String, Map<String, Object>> mergedComponents) {
-        // 暂时返回一个模拟的下载链接
-        return "/api/breakdown/merged/" + contractId + "/download";
+        try {
+            // 获取合同号以生成包含文件名的URL
+            String contractNo = getContractNoById(contractId);
+            String fileName = String.format("%s_合并分解表.pdf", contractNo);
+            // URL编码文件名以处理特殊字符
+            String encodedFileName = java.net.URLEncoder.encode(fileName, "UTF-8");
+            
+            // 返回相对路径，让前端处理端口转换
+            return "/api/breakdown/merged/" + contractId + "/download/" + encodedFileName;
+        } catch (Exception e) {
+            log.error("生成PDF下载链接失败: contractId={}, error={}", contractId, e.getMessage(), e);
+            // 降级处理：返回不带文件名的URL
+            return "/api/breakdown/merged/" + contractId + "/download";
+        }
     }
     
     @Override
@@ -990,6 +1005,20 @@ public class BreakdownServiceImpl implements BreakdownService {
         } catch (Exception e) {
             log.error("生成合并分解表PDF失败: contractId={}, error={}", contractId, e.getMessage(), e);
             throw new RuntimeException("生成PDF失败: " + e.getMessage());
+        }
+    }
+    
+    @Override
+    public String getContractNoById(Long contractId) {
+        try {
+            Optional<Contracts> contractOpt = contractsRepository.findById(contractId);
+            if (contractOpt.isEmpty()) {
+                throw new RuntimeException("合同不存在: contractId=" + contractId);
+            }
+            return contractOpt.get().getContractNo();
+        } catch (Exception e) {
+            log.error("获取合同号失败: contractId={}, error={}", contractId, e.getMessage(), e);
+            throw new RuntimeException("获取合同号失败: " + e.getMessage(), e);
         }
     }
 }

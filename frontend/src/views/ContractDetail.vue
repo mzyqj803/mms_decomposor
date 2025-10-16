@@ -31,7 +31,13 @@
               <el-icon><CopyDocument /></el-icon>
               克隆合同
             </el-button>
-            <el-button @click="handleDeleteContract" :disabled="deleting" size="small" type="danger">
+            <el-button 
+              @click="handleDeleteContract" 
+              :disabled="deleting || contract?.status === 1" 
+              size="small" 
+              type="danger"
+              :title="contract?.status === 1 ? '处理中的合同不能删除' : ''"
+            >
               <el-icon><Delete /></el-icon>
               删除合同
             </el-button>
@@ -98,6 +104,14 @@
             <el-tag :type="getStatusType(contract.status)">
               {{ getStatusText(contract.status) }}
             </el-tag>
+            <el-alert 
+              v-if="contract.status === 1" 
+              title="处理中的合同不能删除" 
+              type="warning" 
+              :closable="false"
+              show-icon
+              style="margin-top: 8px;"
+            />
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ formatDate(contract.entryTs) }}</el-descriptions-item>
         </el-descriptions>
@@ -456,8 +470,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { contractsApi } from '@/api/contracts'
+import { breakdownApi } from '@/api/breakdown'
+import { convertToBackendUrl, isRelativePath } from '@/utils/url'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -522,13 +538,73 @@ const saveContractInfo = async () => {
 
 const handleDeleteContract = async () => {
   if (!contract.value) return
+  
+  // 检查合同状态
+  if (contract.value.status === 1) {
+    ElMessage.warning('处理中的合同不能删除，请等待处理完成后再试')
+    return
+  }
+  
+  // 弹出确认对话框
+  try {
+    const confirmResult = await ElMessageBox.confirm(
+      `您确定要删除合同 "${contract.value.contractNo}" 吗？\n\n⚠️ 警告：删除后无法恢复！\n\n为了确认删除操作，请输入合同号：`,
+      '删除合同确认',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: false,
+        showInput: true,
+        inputPlaceholder: '请输入合同号',
+        inputValidator: (value) => {
+          if (!value) {
+            return '请输入合同号'
+          }
+          if (value !== contract.value.contractNo) {
+            return '合同号不匹配，请重新输入'
+          }
+          return true
+        },
+        inputErrorMessage: '合同号验证失败'
+      }
+    )
+    
+    // confirmResult 是用户输入的值
+    console.log('用户输入的合同号:', confirmResult)
+  } catch (error) {
+    // 用户取消删除
+    console.log('用户取消删除')
+    return
+  }
+  
   try {
     deleting.value = true
-    await contractsApi.deleteContract(contract.value.id)
+    await contractsApi.deleteContract(contract.value.id, contract.value.contractNo)
     ElMessage.success('合同已删除')
     router.push('/contracts')
   } catch (e) {
-    ElMessage.error('删除失败')
+    console.error('删除合同失败:', e)
+    console.error('错误响应:', e.response)
+    
+    let errorMessage = '删除失败'
+    
+    if (e.response) {
+      // Spring Boot 错误响应格式
+      if (e.response.data && typeof e.response.data === 'string') {
+        errorMessage = e.response.data
+      } else if (e.response.data && e.response.data.message) {
+        errorMessage = e.response.data.message
+      } else if (e.response.data && e.response.data.error) {
+        errorMessage = e.response.data.error
+      } else if (e.response.statusText) {
+        errorMessage = e.response.statusText
+      }
+    } else if (e.message) {
+      errorMessage = e.message
+    }
+    
+    ElMessage.error(errorMessage)
   } finally {
     deleting.value = false
   }
@@ -734,23 +810,47 @@ const exportBreakdown = async () => {
 const downloadBreakdownTable = async () => {
   try {
     const contractId = route.params.id
-    const response = await contractsApi.exportBreakdown(contractId, 'pdf')
     
-    // 创建下载链接
-    const blob = new Blob([response], { type: 'application/pdf' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `工艺分解合并表_${contract.value.contractNo}_${dayjs().format('YYYY-MM-DD')}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
+    // 获取该合同的所有箱包
+    const containers = await contractsApi.getContractContainers(contractId)
     
-    ElMessage.success('下载成功')
+    if (!containers || containers.length === 0) {
+      ElMessage.warning('该合同暂无箱包数据')
+      return
+    }
+    
+    // 筛选出已分解的箱包
+    const decomposedContainers = containers.filter(container => container.status === 1)
+    
+    if (decomposedContainers.length === 0) {
+      ElMessage.warning('该合同暂无已分解的箱包')
+      return
+    }
+    
+    // 调用合并分解表功能
+    const containerIds = decomposedContainers.map(container => container.id)
+    const response = await breakdownApi.mergeBreakdownTables(containerIds)
+    
+    if (response.success) {
+      ElMessage.success('合并分解表成功')
+      
+      // 生成下载链接
+      const downloadUrl = response.downloadUrl
+      if (downloadUrl) {
+        // 如果是相对路径，转换为完整的后端URL
+        const finalUrl = isRelativePath(downloadUrl) ? convertToBackendUrl(downloadUrl) : downloadUrl
+        
+        // 直接在新窗口中打开PDF文件
+        window.open(finalUrl, '_blank')
+        
+        ElMessage.success('PDF文件已在新窗口中打开')
+      }
+    } else {
+      ElMessage.error(response.message || '合并分解表失败')
+    }
   } catch (error) {
-    console.error('下载失败:', error)
-    ElMessage.error('下载失败')
+    console.error('合并分解表失败:', error)
+    ElMessage.error('合并分解表失败')
   }
 }
 

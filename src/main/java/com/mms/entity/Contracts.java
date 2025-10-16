@@ -45,6 +45,7 @@ public class Contracts extends BaseEntity {
         public static final int PROCESSING = 1;      // 处理中
         public static final int COMPLETED = 2;       // 完成
         public static final int ERROR = 3;           // 错误
+        public static final int DELETED = 4;         // 已删除
         
         public static String getStatusText(Integer status) {
             if (status == null) return "未知";
@@ -53,6 +54,7 @@ public class Contracts extends BaseEntity {
                 case PROCESSING: return "处理中";
                 case COMPLETED: return "完成";
                 case ERROR: return "错误";
+                case DELETED: return "已删除";
                 default: return "未知";
             }
         }
@@ -64,6 +66,7 @@ public class Contracts extends BaseEntity {
                 case PROCESSING: return "warning";
                 case COMPLETED: return "success";
                 case ERROR: return "danger";
+                case DELETED: return "danger";
                 default: return "info";
             }
         }

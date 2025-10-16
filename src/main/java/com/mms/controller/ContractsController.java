@@ -27,7 +27,7 @@ public class ContractsController {
     public ResponseEntity<Page<Contracts>> getContracts(
             @RequestParam(required = false) String contractNo,
             @RequestParam(required = false) String projectName,
-            @RequestParam(required = false) Contracts.ContractStatus status,
+            @RequestParam(required = false) Integer status,
             Pageable pageable) {
         
         Page<Contracts> contracts = contractsService.getContracts(contractNo, projectName, status, pageable);
@@ -40,6 +40,15 @@ public class ContractsController {
     @GetMapping("/{id}")
     public ResponseEntity<Contracts> getContract(@PathVariable Long id) {
         Contracts contract = contractsService.getContractById(id);
+        return ResponseEntity.ok(contract);
+    }
+    
+    /**
+     * 获取合同详情（包括已删除的合同）
+     */
+    @GetMapping("/{id}/include-deleted")
+    public ResponseEntity<Contracts> getContractIncludeDeleted(@PathVariable Long id) {
+        Contracts contract = contractsService.getContractByIdIncludeDeleted(id);
         return ResponseEntity.ok(contract);
     }
     
@@ -65,8 +74,8 @@ public class ContractsController {
      * 删除合同
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteContract(@PathVariable Long id) {
-        contractsService.deleteContract(id);
+    public ResponseEntity<Void> deleteContract(@PathVariable Long id, @RequestParam String contractNo) {
+        contractsService.deleteContract(id, contractNo);
         return ResponseEntity.ok().build();
     }
     

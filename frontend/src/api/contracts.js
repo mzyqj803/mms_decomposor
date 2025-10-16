@@ -22,8 +22,10 @@ export const contractsApi = {
   },
   
   // 删除合同
-  deleteContract(id) {
-    return api.delete(`/contracts/${id}`)
+  deleteContract(id, contractNo) {
+    return api.delete(`/contracts/${id}`, {
+      params: { contractNo }
+    })
   },
   
   // 搜索合同

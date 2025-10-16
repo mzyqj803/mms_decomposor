@@ -393,6 +393,7 @@ import { Search } from '@element-plus/icons-vue'
 import { contractsApi } from '@/api/contracts'
 import { breakdownApi } from '@/api/breakdown'
 import { componentsApi } from '@/api/components'
+import { convertToBackendUrl, isRelativePath } from '@/utils/url'
 import '@/styles/problem-components.css'
 
 // 响应式数据
@@ -729,15 +730,13 @@ const mergeBreakdownTables = async () => {
       // 生成下载链接
       const downloadUrl = response.downloadUrl
       if (downloadUrl) {
-        // 创建下载链接
-        const link = document.createElement('a')
-        link.href = downloadUrl
-        link.download = `合并分解表_${selectedContract.value.contractNo}_${new Date().toISOString().slice(0, 10)}.pdf`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        // 如果是相对路径，转换为完整的后端URL
+        const finalUrl = isRelativePath(downloadUrl) ? convertToBackendUrl(downloadUrl) : downloadUrl
         
-        ElMessage.success('PDF文件已开始下载')
+        // 直接在新窗口中打开PDF文件
+        window.open(finalUrl, '_blank')
+        
+        ElMessage.success('PDF文件已在新窗口中打开')
       }
     } else {
       ElMessage.error(response.message || '合并分解表失败')
