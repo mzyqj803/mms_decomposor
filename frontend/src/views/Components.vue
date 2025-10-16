@@ -121,6 +121,24 @@
         </div>
       </div>
     </div>
+    
+    <!-- 对话框组件 -->
+    <CreateComponentDialog
+      v-model="showCreateDialog"
+      @success="handleCreateSuccess"
+    />
+    
+    <ViewComponentDialog
+      v-model="showViewDialog"
+      :component-data="selectedComponent"
+      @edit="handleViewEdit"
+    />
+    
+    <EditComponentDialog
+      v-model="showEditDialog"
+      :component-data="selectedComponent"
+      @success="handleEditSuccess"
+    />
   </div>
 </template>
 
@@ -129,6 +147,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import { componentsApi } from '@/api/components'
+import CreateComponentDialog from '@/components/CreateComponentDialog.vue'
+import ViewComponentDialog from '@/components/ViewComponentDialog.vue'
+import EditComponentDialog from '@/components/EditComponentDialog.vue'
 
 const loading = ref(false)
 
@@ -145,6 +166,12 @@ const pagination = reactive({
   pageSize: 20,
   total: 0
 })
+
+// 对话框状态
+const showCreateDialog = ref(false)
+const showViewDialog = ref(false)
+const showEditDialog = ref(false)
+const selectedComponent = ref({})
 
 const formatDate = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
@@ -202,15 +229,17 @@ const handleReset = () => {
 }
 
 const handleCreate = () => {
-  ElMessage.info('新增零部件功能开发中...')
+  showCreateDialog.value = true
 }
 
 const handleView = (row) => {
-  ElMessage.info(`查看零部件: ${row.name}`)
+  selectedComponent.value = row
+  showViewDialog.value = true
 }
 
 const handleEdit = (row) => {
-  ElMessage.info(`编辑零部件: ${row.name}`)
+  selectedComponent.value = row
+  showEditDialog.value = true
 }
 
 const handleDelete = async (row) => {
@@ -249,6 +278,20 @@ const handleCurrentChange = (page) => {
 onMounted(() => {
   loadComponents()
 })
+
+// 对话框事件处理
+const handleCreateSuccess = () => {
+  loadComponents()
+}
+
+const handleEditSuccess = () => {
+  loadComponents()
+}
+
+const handleViewEdit = (componentData) => {
+  selectedComponent.value = componentData
+  showEditDialog.value = true
+}
 </script>
 
 <style lang="scss" scoped>

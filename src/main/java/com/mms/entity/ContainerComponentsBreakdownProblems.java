@@ -21,6 +21,9 @@ public class ContainerComponentsBreakdownProblems extends BaseEntity {
     @Column(name = "component_no", length = 255)
     private String componentNo;
     
+    @Column(name = "name", length = 511)
+    private String name;
+    
     @Column(name = "quantity")
     private Integer quantity;
     

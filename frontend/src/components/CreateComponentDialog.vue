@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="编辑零部件"
+    title="新增零部件"
     width="600px"
     :close-on-click-modal="false"
     @close="handleClose"
@@ -84,10 +84,6 @@ const props = defineProps({
   modelValue: {
     type: Boolean,
     default: false
-  },
-  componentData: {
-    type: Object,
-    default: () => ({})
   }
 })
 
@@ -102,7 +98,6 @@ const loading = ref(false)
 const formRef = ref()
 
 const form = reactive({
-  id: null,
   categoryCode: '',
   componentCode: '',
   name: '',
@@ -142,20 +137,6 @@ const handleComponentCodeBlur = () => {
   }
 }
 
-const loadComponentData = () => {
-  if (props.componentData.id) {
-    Object.assign(form, {
-      id: props.componentData.id,
-      categoryCode: props.componentData.categoryCode || '',
-      componentCode: props.componentData.componentCode || '',
-      name: props.componentData.name || '',
-      procurementFlag: props.componentData.procurementFlag || false,
-      commonPartsFlag: props.componentData.commonPartsFlag || false,
-      comment: props.componentData.comment || ''
-    })
-  }
-}
-
 const handleSave = async () => {
   if (!formRef.value) return
   
@@ -164,9 +145,9 @@ const handleSave = async () => {
     
     loading.value = true
     
-    const response = await componentsApi.updateComponent(form.id, form)
+    const response = await componentsApi.createComponent(form)
     
-    ElMessage.success('零部件更新成功')
+    ElMessage.success('零部件创建成功')
     emit('success', response)
     handleClose()
     
@@ -176,7 +157,7 @@ const handleSave = async () => {
       return
     }
     
-    console.error('更新零部件失败:', error)
+    console.error('创建零部件失败:', error)
     
     // 处理特定的错误信息
     if (error.response?.data?.message) {
@@ -184,7 +165,7 @@ const handleSave = async () => {
     } else if (error.message?.includes('零部件代号已存在')) {
       ElMessage.error('零部件代号已存在，请使用其他代号')
     } else {
-      ElMessage.error('更新零部件失败，请重试')
+      ElMessage.error('创建零部件失败，请重试')
     }
   } finally {
     loading.value = false
@@ -194,7 +175,6 @@ const handleSave = async () => {
 const handleClose = () => {
   // 重置表单
   Object.assign(form, {
-    id: null,
     categoryCode: '',
     componentCode: '',
     name: '',
@@ -213,8 +193,8 @@ const handleClose = () => {
 
 // 监听对话框打开
 watch(visible, (newVal) => {
-  if (newVal && props.componentData.id) {
-    loadComponentData()
+  if (newVal) {
+    // 对话框打开时可以做一些初始化工作
   }
 })
 </script>
