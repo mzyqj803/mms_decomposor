@@ -110,7 +110,7 @@ public class BreakdownController {
             
             // 获取合同信息以生成正确的文件名
             String contractNo = breakdownService.getContractNoById(contractId);
-            String fileName = String.format("%s_工艺分解合并表.%s", contractNo, format);
+            String fileName = String.format("%s_breakdown_merge.%s", contractNo, format);
             
             HttpHeaders headers = new HttpHeaders();
             if ("pdf".equals(format)) {
@@ -197,7 +197,9 @@ public class BreakdownController {
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", fileName);
+            // 使用URL编码处理中文文件名
+            String encodedFileName = java.net.URLEncoder.encode(fileName, "UTF-8");
+            headers.set("Content-Disposition", String.format("attachment; filename=\"%s\"; filename*=UTF-8''%s", fileName, encodedFileName));
             
             return ResponseEntity.ok()
                 .headers(headers)
