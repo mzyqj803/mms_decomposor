@@ -251,10 +251,10 @@
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column prop="commonPartsFlag" label="是否通用件" width="100">
+                <el-table-column prop="commonPartsFlag" label="通用件类型" width="120">
                   <template #default="{ row }">
-                    <el-tag :type="row.commonPartsFlag ? 'warning' : 'info'">
-                      {{ row.commonPartsFlag ? '是' : '否' }}
+                    <el-tag :type="row.commonPartsFlag === 1 ? 'warning' : (row.commonPartsFlag === 2 ? 'success' : 'info')">
+                      {{ row.commonPartsFlag === 1 ? '装箱紧固件' : (row.commonPartsFlag === 2 ? '装配紧固件' : '非紧固件') }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -307,10 +307,10 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="commonPartsFlag" label="是否通用件" width="100">
+          <el-table-column prop="commonPartsFlag" label="通用件类型" width="120">
             <template #default="{ row }">
-              <el-tag :type="row.commonPartsFlag ? 'warning' : 'info'">
-                {{ row.commonPartsFlag ? '是' : '否' }}
+              <el-tag :type="row.commonPartsFlag === 1 ? 'warning' : (row.commonPartsFlag === 2 ? 'success' : 'info')">
+                {{ row.commonPartsFlag === 1 ? '装箱紧固件' : (row.commonPartsFlag === 2 ? '装配紧固件' : '非紧固件') }}
               </el-tag>
             </template>
           </el-table-column>
@@ -534,8 +534,18 @@ const breakdownAllContainers = async () => {
     )
     
     breakdownLoading.value = true
+    
+    // 显示处理提示
+    const loadingMessage = ElMessage({
+      message: '正在处理合同分解，请耐心等待...',
+      type: 'info',
+      duration: 0,
+      showClose: true
+    })
+    
     const response = await breakdownApi.breakdownContract(selectedContract.value.id)
     
+    loadingMessage.close()
     ElMessage.success('合同工艺分解完成')
     breakdownResults.value = response
     
@@ -547,7 +557,26 @@ const breakdownAllContainers = async () => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('合同分解失败:', error)
-      ElMessage.error('合同分解失败')
+      
+      // 检查是否是超时错误
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        // 超时错误已经在拦截器中处理，这里提供额外的操作提示
+        ElMessageBox.alert(
+          '后台服务处理时间较长，响应超时。但处理可能仍在继续，数据可能已经保存成功。建议您：\n\n' +
+          '1. 等待1-2分钟后刷新页面\n' +
+          '2. 检查合同状态是否已更新为"已完成"\n' +
+          '3. 查看分解结果是否已生成\n\n' +
+          '如果分解结果已生成，说明处理成功。',
+          '温馨提示',
+          {
+            confirmButtonText: '我知道了',
+            type: 'warning',
+            dangerouslyUseHTMLString: false
+          }
+        )
+      } else {
+        ElMessage.error('合同分解失败')
+      }
     }
   } finally {
     breakdownLoading.value = false
@@ -621,14 +650,14 @@ const exportSingleBreakdown = async () => {
       ['箱包号', '部件编号', '部件名称', '数量', '是否外购', '是否通用件', '备注']
     ]
     
-    breakdownData.allComponents.forEach(component => {
+        breakdownData.allComponents.forEach(component => {
       wsData.push([
         breakdownData.containerNo,
         component.componentCode,
         component.name,
         component.quantity,
         component.procurementFlag ? '是' : '否',
-        component.commonPartsFlag ? '是' : '否',
+            component.commonPartsFlag === 1 ? '装箱紧固件' : (component.commonPartsFlag === 2 ? '装配紧固件' : '非紧固件'),
         component.remark || ''
       ])
     })

@@ -11,8 +11,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationContext;
 
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.io.ByteArrayOutputStream;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
@@ -42,27 +47,53 @@ public class BreakdownServiceImpl implements BreakdownService {
     private final ContainerComponentsBreakdownErpService breakdownErpService;
     private final FastenerErpCodeFinder fastenerErpCodeFinder;
     private final ObjectMapper objectMapper;
+    private final ComponentsSpecRepository componentsSpecRepository;
+    private final ApplicationContext applicationContext;
+    
+    // 非标零部件创建锁，按componentCode分段加锁，避免重复创建
+    private final ConcurrentHashMap<String, Object> nonStandardComponentLocks = new ConcurrentHashMap<>();
     
     @Override
     @Transactional
     public Map<String, Object> breakdownContainer(Long containerId) {
-        log.info("开始对箱包进行工艺分解: containerId={}", containerId);
+        return breakdownContainer(containerId, true);
+    }
+    
+    /**
+     * 箱包工艺分解（内部方法）
+     * @param containerId 箱包ID
+     * @param deleteOldRecords 是否删除旧记录（从合同级别调用时为false，避免锁冲突）
+     */
+    @Transactional
+    public Map<String, Object> breakdownContainer(Long containerId, boolean deleteOldRecords) {
+        long startTime = System.currentTimeMillis();
+        log.info("开始对箱包进行工艺分解: containerId={}, deleteOldRecords={}", containerId, deleteOldRecords);
         
         Containers container = containersRepository.findById(containerId)
             .orElseThrow(() -> new RuntimeException("箱包不存在"));
         
-        // 清除该箱包之前的分解记录和问题部件记录
-        breakdownRepository.deleteByContainerId(containerId);
-        problemsRepository.deleteByContainerId(containerId);
+        // 清除该箱包之前的分解记录和问题部件记录（如果需要）
+        if (deleteOldRecords) {
+            long deleteTime = System.currentTimeMillis();
+            breakdownRepository.deleteByContainerId(containerId);
+            problemsRepository.deleteByContainerId(containerId);
+            log.debug("删除旧记录耗时: {}ms", System.currentTimeMillis() - deleteTime);
+        }
         
         // 更新container状态为未分解
         container.setStatus(0);
         containersRepository.save(container);
         
+        // 获取箱包部件
+        long fetchTime = System.currentTimeMillis();
         List<ContainerComponents> containerComponents = containerComponentsRepository.findByContainerId(containerId);
+        log.debug("查询箱包部件耗时: {}ms, 部件数: {}", System.currentTimeMillis() - fetchTime, containerComponents.size());
+        
         List<Map<String, Object>> breakdownResults = new ArrayList<>();
         List<String> problemComponents = new ArrayList<>();
         
+        // 处理每个部件
+        long processTime = System.currentTimeMillis();
         for (ContainerComponents containerComponent : containerComponents) {
             Map<String, Object> result = processComponent(containerComponent);
             breakdownResults.add(result);
@@ -93,6 +124,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 }
             }
         }
+        log.debug("处理所有部件耗时: {}ms", System.currentTimeMillis() - processTime);
         
         Map<String, Object> response = new HashMap<>();
         response.put("containerId", containerId);
@@ -108,8 +140,10 @@ public class BreakdownServiceImpl implements BreakdownService {
         container.setStatus(1);
         containersRepository.save(container);
         
-        log.info("箱包工艺分解完成: containerId={}, 处理部件数={}, 问题部件数={}", 
-            containerId, breakdownResults.size(), problemComponents.size());
+        long totalTime = System.currentTimeMillis() - startTime;
+        log.info("箱包工艺分解完成: containerId={}, 处理部件数={}, 问题部件数={}, 耗时: {}ms, 速度: {}/秒", 
+            containerId, breakdownResults.size(), problemComponents.size(), 
+            totalTime, (breakdownResults.size() * 1000.0 / totalTime));
         
         return response;
     }
@@ -117,49 +151,133 @@ public class BreakdownServiceImpl implements BreakdownService {
     @Override
     @Transactional
     public Map<String, Object> breakdownContract(Long contractId) {
+        long overallStartTime = System.currentTimeMillis();
         log.info("开始对合同进行工艺分解: contractId={}", contractId);
         
-        // 清除该合同的所有分解记录
-        breakdownRepository.deleteByContractId(contractId);
-        
+        // 获取所有箱包（不在这里删除旧记录，避免持有长时间的表锁）
         List<Containers> containers = containersRepository.findByContractId(contractId);
-        List<Map<String, Object>> containerResults = new ArrayList<>();
-        List<String> allProblemComponents = new ArrayList<>();
-        int totalProcessedComponents = 0;
+        int containerCount = containers.size();
         
-        for (Containers container : containers) {
-            Map<String, Object> containerResult = breakdownContainer(container.getId());
-            containerResults.add(containerResult);
+        // 确定线程池大小：取CPU核心数和箱包数的较小值
+        int poolSize = Math.min(containerCount, Runtime.getRuntime().availableProcessors());
+        log.info("合同包含 {} 个箱包，使用 {} 个线程并行处理", containerCount, poolSize);
+        
+        // 创建线程池
+        ExecutorService executor = Executors.newFixedThreadPool(poolSize, new ThreadFactory() {
+            private final AtomicInteger threadNumber = new AtomicInteger(1);
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName("breakdown-worker-" + threadNumber.getAndIncrement());
+                return thread;
+            }
+        });
+        
+        // 用于汇总结果的线程安全集合
+        List<Map<String, Object>> containerResults = Collections.synchronizedList(new ArrayList<>());
+        List<String> allProblemComponents = Collections.synchronizedList(new ArrayList<>());
+        AtomicInteger totalProcessedComponents = new AtomicInteger(0);
+        
+        try {
+            long parallelStartTime = System.currentTimeMillis();
             
-            @SuppressWarnings("unchecked")
-            List<String> problems = (List<String>) containerResult.get("problemComponents");
-            if (problems != null) {
-                allProblemComponents.addAll(problems);
+            // 创建并行任务
+            // 获取当前bean的代理对象，确保事务传播正确
+            BreakdownService breakdownService = applicationContext.getBean(BreakdownService.class);
+            
+            List<CompletableFuture<Map<String, Object>>> futures = containers.stream()
+                .map(container -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        // 使用代理调用以确保在新事务中执行
+                        // 传入true，让每个箱包在独立事务中删除自己的旧记录（避免表级锁）
+                        return breakdownService.breakdownContainer(container.getId(), true);
+                    } catch (Exception e) {
+                        log.error("箱包分解失败: containerId={}, containerNo={}, error={}", 
+                            container.getId(), container.getContainerNo(), e.getMessage(), e);
+                        // 返回错误结果
+                        Map<String, Object> errorResult = new HashMap<>();
+                        errorResult.put("containerId", container.getId());
+                        errorResult.put("containerNo", container.getContainerNo());
+                        errorResult.put("error", e.getMessage());
+                        errorResult.put("processedComponents", 0);
+                        errorResult.put("problemComponents", new ArrayList<>());
+                        return errorResult;
+                    }
+                }, executor))
+                .collect(Collectors.toList());
+            
+            // 等待所有任务完成并收集结果
+            for (CompletableFuture<Map<String, Object>> future : futures) {
+                try {
+                    Map<String, Object> containerResult = future.get();
+                    containerResults.add(containerResult);
+                    
+                    // 汇总问题部件
+                    @SuppressWarnings("unchecked")
+                    List<String> problems = (List<String>) containerResult.get("problemComponents");
+                    if (problems != null && !problems.isEmpty()) {
+                        allProblemComponents.addAll(problems);
+                    }
+                    
+                    // 汇总处理的部件数
+                    Integer processed = (Integer) containerResult.get("processedComponents");
+                    if (processed != null) {
+                        totalProcessedComponents.addAndGet(processed);
+                    }
+                } catch (ExecutionException | InterruptedException e) {
+                    log.error("获取箱包分解结果失败: {}", e.getMessage(), e);
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
             
-            totalProcessedComponents += (Integer) containerResult.get("processedComponents");
+            long parallelDuration = System.currentTimeMillis() - parallelStartTime;
+            log.info("并行分解完成，耗时: {}ms, 平均每个箱包: {}ms", 
+                parallelDuration, parallelDuration / containerCount);
+            
+        } finally {
+            // 关闭线程池
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                    log.warn("线程池未能在60秒内完成，强制关闭");
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                log.error("等待线程池关闭时被中断", e);
+                executor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
         
-        // 生成汇总表
+        // 生成汇总表（只读操作，线程安全）
+        long summaryStartTime = System.currentTimeMillis();
         Map<String, Object> summary = generateBreakdownSummary(contractId);
+        log.info("生成汇总表耗时: {}ms", System.currentTimeMillis() - summaryStartTime);
         
         // 更新合同状态为已完成
+        long updateStartTime = System.currentTimeMillis();
         Contracts contract = contractsRepository.findById(contractId)
             .orElseThrow(() -> new RuntimeException("合同不存在"));
         contract.setStatus(Contracts.ContractStatus.COMPLETED);
         contractsRepository.save(contract);
+        log.info("更新合同状态耗时: {}ms", System.currentTimeMillis() - updateStartTime);
         
+        // 构建响应
         Map<String, Object> response = new HashMap<>();
         response.put("contractId", contractId);
         response.put("containerResults", containerResults);
         response.put("summary", summary);
-        response.put("totalContainers", containers.size());
-        response.put("totalProcessedComponents", totalProcessedComponents);
+        response.put("totalContainers", containerCount);
+        response.put("totalProcessedComponents", totalProcessedComponents.get());
         response.put("allProblemComponents", allProblemComponents);
         response.put("breakdownTime", new Date().toString());
         
-        log.info("合同工艺分解完成: contractId={}, 箱包数={}, 处理部件数={}, 合同状态已更新为已完成", 
-            contractId, containers.size(), totalProcessedComponents);
+        long overallDuration = System.currentTimeMillis() - overallStartTime;
+        log.info("合同工艺分解完成: contractId={}, 箱包数={}, 处理部件数={}, 总耗时: {}ms, 平均速度: {}/秒, 合同状态已更新为已完成", 
+            contractId, containerCount, totalProcessedComponents.get(), 
+            overallDuration, (totalProcessedComponents.get() * 1000.0 / overallDuration));
         
         return response;
     }
@@ -224,7 +342,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 } else {
                     // 如果找不到匹配的组件，使用默认值并记录为问题部件
                     componentInfo.put("procurementFlag", false);
-                    componentInfo.put("commonPartsFlag", false);
+                    componentInfo.put("commonPartsFlag", 0);
                     componentInfo.put("remark", "工件不存在"); // 问题组件备注
                     componentInfo.put("erpCode", ""); // 问题组件无ERP代码
                     componentInfo.put("childComponents", new ArrayList<>()); // 空子组件列表
@@ -258,21 +376,30 @@ public class BreakdownServiceImpl implements BreakdownService {
             return response;
         }
         
+        // 批量获取所有ERP代码（性能优化：避免N+1查询）
+        Map<Long, String> erpCodeMap = new HashMap<>();
+        try {
+            long startTime = System.currentTimeMillis();
+            List<ContainerComponentsBreakdownErp> allErpRecords = breakdownErpService.findByContainerId(containerId);
+            erpCodeMap = allErpRecords.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    erp -> erp.getBreakdown().getId(),
+                    erp -> erp.getErpCode() != null ? erp.getErpCode() : "",
+                    (existing, replacement) -> existing
+                ));
+            long duration = System.currentTimeMillis() - startTime;
+            log.debug("批量加载了 {} 条ERP代码记录，耗时: {}ms", erpCodeMap.size(), duration);
+        } catch (Exception e) {
+            log.error("批量获取ERP代码失败: containerId={}, error={}", containerId, e.getMessage());
+        }
+        
         // 然后添加所有子组件
         for (ContainerComponentsBreakdown breakdown : breakdowns) {
             Components subComponent = breakdown.getSubComponent();
             String componentCode = subComponent.getComponentCode();
             
-            // 获取ERP代码
-            String erpCode = "";
-            try {
-                List<ContainerComponentsBreakdownErp> erpRecords = breakdownErpService.findByBreakdownId(breakdown.getId());
-                if (!erpRecords.isEmpty()) {
-                    erpCode = erpRecords.get(0).getErpCode();
-                }
-            } catch (Exception e) {
-                log.debug("获取组件 {} 的ERP代码失败: {}", componentCode, e.getMessage());
-            }
+            // 从Map中快速获取ERP代码（O(1)时间复杂度）
+            String erpCode = erpCodeMap.getOrDefault(breakdown.getId(), "");
             
             if (allComponents.containsKey(componentCode)) {
                 // 合并同ComponentNo的组件，累加数量
@@ -354,8 +481,14 @@ public class BreakdownServiceImpl implements BreakdownService {
     
     /**
      * 从缓存或数据库中获取零部件信息
+     * 如果componentCode包含~符号，会自动创建非标组件
      */
     private Optional<Components> getComponentByCode(String componentCode) {
+        // 检查是否为非标组件（包含~符号）
+        if (componentCode != null && componentCode.contains("~")) {
+            return getOrCreateNonStandardComponent(componentCode);
+        }
+        
         // 优先从Redis缓存中获取
         Optional<String> cachedComponentJson = componentCacheService.getComponentFromCache(componentCode);
         
@@ -386,6 +519,122 @@ public class BreakdownServiceImpl implements BreakdownService {
         }
         
         return componentOpt;
+    }
+    
+    /**
+     * 获取或创建非标组件（线程安全）
+     * 如果非标组件不存在，则基于基础组件创建
+     * 使用双重检查锁定模式，避免多线程重复创建
+     * @param nonStandardCode 非标组件代码，如 TTA0E104002~AA79375
+     * @return 非标组件
+     */
+    @Transactional
+    private Optional<Components> getOrCreateNonStandardComponent(String nonStandardCode) {
+        log.info("检测到非标组件代码: {}", nonStandardCode);
+        
+        // 第一次检查：快速路径，不加锁
+        Optional<Components> existingComponent = componentsRepository.findByComponentCode(nonStandardCode);
+        if (existingComponent.isPresent()) {
+            log.info("非标组件已存在（第一次检查）: {}", nonStandardCode);
+            return existingComponent;
+        }
+        
+        // 获取或创建该componentCode的锁对象
+        Object lock = nonStandardComponentLocks.computeIfAbsent(nonStandardCode, k -> new Object());
+        
+        // 对特定的componentCode加锁
+        synchronized (lock) {
+            log.debug("已获取非标组件创建锁: {}", nonStandardCode);
+            
+            // 第二次检查：在锁内再次检查，避免重复创建
+            existingComponent = componentsRepository.findByComponentCode(nonStandardCode);
+            if (existingComponent.isPresent()) {
+                log.info("非标组件已存在（第二次检查，锁内）: {}", nonStandardCode);
+                return existingComponent;
+            }
+            
+            // 提取基础组件代码（~符号前的部分）
+            String baseComponentCode = nonStandardCode.substring(0, nonStandardCode.indexOf("~"));
+            log.info("提取基础组件代码: {}", baseComponentCode);
+            
+            // 查找基础组件
+            Optional<Components> baseComponentOpt = componentsRepository.findByComponentCode(baseComponentCode);
+            if (baseComponentOpt.isEmpty()) {
+                log.error("基础组件不存在，无法创建非标组件: baseComponentCode={}", baseComponentCode);
+                return Optional.empty();
+            }
+            
+            Components baseComponent = baseComponentOpt.get();
+            log.info("找到基础组件: {}, name={}", baseComponent.getComponentCode(), baseComponent.getName());
+            
+            try {
+                // 创建非标组件，复制基础组件的所有属性
+                Components nonStandardComponent = new Components();
+                nonStandardComponent.setComponentCode(nonStandardCode);
+                nonStandardComponent.setName(baseComponent.getName());
+                nonStandardComponent.setCategoryCode(baseComponent.getCategoryCode());
+                nonStandardComponent.setComment(baseComponent.getComment());
+                nonStandardComponent.setProcurementFlag(baseComponent.getProcurementFlag());
+                nonStandardComponent.setCommonPartsFlag(baseComponent.getCommonPartsFlag());
+                
+                // 保存非标组件
+                Components savedComponent = componentsRepository.save(nonStandardComponent);
+                log.info("创建非标组件成功: id={}, componentCode={}", savedComponent.getId(), savedComponent.getComponentCode());
+                
+                // 复制基础组件的规格（components_spec）
+                List<ComponentsSpec> baseSpecs = componentsSpecRepository.findByComponentId(baseComponent.getId());
+                for (ComponentsSpec baseSpec : baseSpecs) {
+                    ComponentsSpec newSpec = new ComponentsSpec();
+                    newSpec.setComponent(savedComponent);
+                    newSpec.setSpecCode(baseSpec.getSpecCode());
+                    newSpec.setSpecValue(baseSpec.getSpecValue());
+                    newSpec.setComments(baseSpec.getComments());
+                    componentsSpecRepository.save(newSpec);
+                }
+                log.info("复制基础组件规格完成: 共{}条", baseSpecs.size());
+                
+                // 添加非标组件标记
+                ComponentsSpec nonStandardFlag = new ComponentsSpec();
+                nonStandardFlag.setComponent(savedComponent);
+                nonStandardFlag.setSpecCode("nonStandardPartFlag");
+                nonStandardFlag.setSpecValue("1");
+                nonStandardFlag.setComments("自动生成的非标组件标记");
+                componentsSpecRepository.save(nonStandardFlag);
+                log.info("添加非标组件标记成功");
+                
+                // 复制基础组件的关系（components_relationship）
+                List<ComponentsRelationship> baseRelationships = componentsRelationshipRepository.findByParentId(baseComponent.getId());
+                for (ComponentsRelationship baseRelation : baseRelationships) {
+                    ComponentsRelationship newRelation = new ComponentsRelationship();
+                    newRelation.setParent(savedComponent);
+                    newRelation.setChild(baseRelation.getChild());
+                    newRelation.setQuantity(baseRelation.getQuantity());
+                    componentsRelationshipRepository.save(newRelation);
+                }
+                log.info("复制基础组件关系完成: 共{}条", baseRelationships.size());
+                
+                // 将新创建的非标组件存储到缓存中
+                try {
+                    String componentJson = objectMapper.writeValueAsString(savedComponent);
+                    componentCacheService.putComponentToCache(nonStandardCode, componentJson);
+                } catch (Exception e) {
+                    log.error("将非标组件存储到缓存失败: componentCode={}, error={}", 
+                        nonStandardCode, e.getMessage());
+                }
+                
+                log.info("非标组件创建完成: componentCode={}, baseComponentCode={}, specs={}, relationships={}", 
+                    nonStandardCode, baseComponentCode, baseSpecs.size() + 1, baseRelationships.size());
+                
+                return Optional.of(savedComponent);
+                
+            } catch (Exception e) {
+                log.error("创建非标组件失败: nonStandardCode={}, baseComponentCode={}, error={}", 
+                    nonStandardCode, baseComponentCode, e.getMessage(), e);
+                return Optional.empty();
+            } finally {
+                log.debug("释放非标组件创建锁: {}", nonStandardCode);
+            }
+        } // synchronized 结束
     }
     
     /**
@@ -558,7 +807,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                     componentInfo.put("name", containerComponent.getComponentName());
                     componentInfo.put("containerName", container.getName()); // 添加箱包名称
                     componentInfo.put("procurementFlag", false); // 默认值
-                    componentInfo.put("commonPartsFlag", false); // 默认值
+                    componentInfo.put("commonPartsFlag", 0); // 默认值
                     componentInfo.put("totalQuantity", containerComponent.getQuantity());
                     componentInfo.put("erpCode", ""); // 父组件默认无ERP代码
                     componentInfo.put("remark", ""); // 默认无备注
@@ -568,21 +817,30 @@ public class BreakdownServiceImpl implements BreakdownService {
             }
         }
         
+        // 批量获取所有ERP代码（性能优化：避免N+1查询）
+        Map<Long, String> erpCodeMap = new HashMap<>();
+        try {
+            long startTime = System.currentTimeMillis();
+            List<ContainerComponentsBreakdownErp> allErpRecords = breakdownErpService.findByContractId(contractId);
+            erpCodeMap = allErpRecords.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    erp -> erp.getBreakdown().getId(),
+                    erp -> erp.getErpCode() != null ? erp.getErpCode() : "",
+                    (existing, replacement) -> existing
+                ));
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("批量加载了 {} 条ERP代码记录用于合同分解汇总，耗时: {}ms", erpCodeMap.size(), duration);
+        } catch (Exception e) {
+            log.error("批量获取ERP代码失败: contractId={}, error={}", contractId, e.getMessage());
+        }
+        
         // 然后添加所有子组件
         for (ContainerComponentsBreakdown breakdown : allBreakdowns) {
             Components component = breakdown.getSubComponent();
             String componentCode = component.getComponentCode();
             
-            // 获取ERP代码
-            String erpCode = "";
-            try {
-                List<ContainerComponentsBreakdownErp> erpRecords = breakdownErpService.findByBreakdownId(breakdown.getId());
-                if (!erpRecords.isEmpty()) {
-                    erpCode = erpRecords.get(0).getErpCode() != null ? erpRecords.get(0).getErpCode() : "";
-                }
-            } catch (Exception e) {
-                log.debug("获取组件 {} 的ERP代码失败: {}", componentCode, e.getMessage());
-            }
+            // 从Map中快速获取ERP代码（O(1)时间复杂度）
+            String erpCode = erpCodeMap.getOrDefault(breakdown.getId(), "");
             
             // 获取箱包名称
             String containerName = breakdown.getContainer() != null ? breakdown.getContainer().getName() : "未知箱包";
@@ -711,7 +969,7 @@ public class BreakdownServiceImpl implements BreakdownService {
             problemComponent.put("quantity", quantity);
             problemComponent.put("erpCode", null);
             problemComponent.put("procurementFlag", false);
-            problemComponent.put("commonPartsFlag", false);
+            problemComponent.put("commonPartsFlag", 0);
             problemComponent.put("remark", "在components表中找不到匹配项");
             
             mergedComponents.put(componentNo, problemComponent);
@@ -841,7 +1099,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                     problemComponent.put("quantity", quantity);
                     problemComponent.put("erpCode", "");
                     problemComponent.put("procurementFlag", false);
-                    problemComponent.put("commonPartsFlag", false);
+                    problemComponent.put("commonPartsFlag", 0);
                     problemComponent.put("remark", "工件不存在");
                     
                     mergedComponents.put(componentNo, problemComponent);
@@ -972,8 +1230,15 @@ public class BreakdownServiceImpl implements BreakdownService {
                 table.addCell(procurementCell);
                 
                 // 是否通用件列
-                Boolean commonPartsFlag = (Boolean) component.get("commonPartsFlag");
-                Cell commonPartsCell = new Cell().add(new Paragraph(commonPartsFlag != null && commonPartsFlag ? "是" : "否")).setTextAlignment(TextAlignment.CENTER);
+                Object cpfObj = component.get("commonPartsFlag");
+                Integer cpf = null;
+                if (cpfObj instanceof Integer) {
+                    cpf = (Integer) cpfObj;
+                } else if (cpfObj instanceof Boolean) {
+                    cpf = ((Boolean) cpfObj) ? 1 : 0;
+                }
+                String cpfText = (cpf != null && cpf == 1) ? "装箱紧固件" : (cpf != null && cpf == 2) ? "装配紧固件" : "非紧固件";
+                Cell commonPartsCell = new Cell().add(new Paragraph(cpfText)).setTextAlignment(TextAlignment.CENTER);
                 if (isProblemRow) {
                     commonPartsCell.setBackgroundColor(ColorConstants.RED)
                             .setFontColor(ColorConstants.WHITE)

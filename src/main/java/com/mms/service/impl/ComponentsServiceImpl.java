@@ -2,7 +2,10 @@ package com.mms.service.impl;
 
 import com.mms.entity.Components;
 import com.mms.entity.ComponentsSpec;
+import com.mms.entity.ComponentsRelationship;
 import com.mms.repository.ComponentsRepository;
+import com.mms.repository.ComponentsSpecRepository;
+import com.mms.repository.ComponentsRelationshipRepository;
 import com.mms.service.CacheService;
 import com.mms.service.ComponentsService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 public class ComponentsServiceImpl implements ComponentsService {
     
     private final ComponentsRepository componentsRepository;
+    private final ComponentsSpecRepository componentsSpecRepository;
+    private final ComponentsRelationshipRepository componentsRelationshipRepository;
     private final CacheService cacheService;
     
     @Override
@@ -68,12 +73,42 @@ public class ComponentsServiceImpl implements ComponentsService {
             throw new RuntimeException("零部件代号已存在");
         }
         
+        // 保存零部件基本信息
         Components savedComponent = componentsRepository.save(component);
+        
+        // 处理规格数据
+        if (component.getSpecs() != null && !component.getSpecs().isEmpty()) {
+            for (ComponentsSpec spec : component.getSpecs()) {
+                spec.setComponent(savedComponent);
+                componentsSpecRepository.save(spec);
+            }
+        }
+        
+        // 处理父工件关系
+        if (component.getParentComponentId() != null && !component.getParentComponentId().trim().isEmpty()) {
+            // 查找父工件
+            Components parentComponent = componentsRepository.findByComponentCode(component.getParentComponentId())
+                .orElseThrow(() -> new RuntimeException("父工件不存在: " + component.getParentComponentId()));
+            
+            // 创建父子关系
+            ComponentsRelationship relationship = new ComponentsRelationship();
+            relationship.setParent(parentComponent);
+            relationship.setChild(savedComponent);
+            relationship.setQuantity(1); // 默认数量为1
+            
+            componentsRelationshipRepository.save(relationship);
+            
+            log.info("创建父子关系成功: 父工件={}, 子工件={}", 
+                    parentComponent.getComponentCode(), savedComponent.getComponentCode());
+        }
         
         // 清除相关缓存
         clearComponentsCache();
         
-        log.info("创建零部件成功: {}", savedComponent.getComponentCode());
+        log.info("创建零部件成功: {}, 规格数量: {}, 父工件: {}", 
+                savedComponent.getComponentCode(), 
+                component.getSpecs() != null ? component.getSpecs().size() : 0,
+                component.getParentComponentId());
         return savedComponent;
     }
     
@@ -98,11 +133,24 @@ public class ComponentsServiceImpl implements ComponentsService {
         
         Components updatedComponent = componentsRepository.save(existingComponent);
         
+        // 处理规格数据更新
+        if (component.getSpecs() != null) {
+            // 删除现有规格
+            componentsSpecRepository.deleteByComponentId(id);
+            
+            // 添加新规格
+            for (ComponentsSpec spec : component.getSpecs()) {
+                spec.setComponent(updatedComponent);
+                componentsSpecRepository.save(spec);
+            }
+        }
+        
         // 清除相关缓存
         clearComponentCache(id);
         clearComponentsCache();
         
-        log.info("更新零部件成功: {}", updatedComponent.getComponentCode());
+        log.info("更新零部件成功: {}, 规格数量: {}", updatedComponent.getComponentCode(), 
+                component.getSpecs() != null ? component.getSpecs().size() : 0);
         return updatedComponent;
     }
     
@@ -111,16 +159,20 @@ public class ComponentsServiceImpl implements ComponentsService {
     public void deleteComponent(Long id) {
         Components component = getComponentById(id);
         
-        // 检查是否有关联的规格、工艺或关系数据
-        if (component.getSpecs() != null && !component.getSpecs().isEmpty()) {
-            throw new RuntimeException("该零部件存在规格数据，不能删除");
-        }
+        // 检查是否有关联的工艺或关系数据
         if (component.getProcesses() != null && !component.getProcesses().isEmpty()) {
             throw new RuntimeException("该零部件存在工艺数据，不能删除");
         }
         if (component.getChildren() != null && !component.getChildren().isEmpty()) {
             throw new RuntimeException("该零部件存在子组件关系，不能删除");
         }
+        
+        // 删除规格数据
+        componentsSpecRepository.deleteByComponentId(id);
+        
+        // 删除父子关系（作为子组件的记录）
+        componentsRelationshipRepository.deleteByChildId(id);
+        
         if (component.getParents() != null && !component.getParents().isEmpty()) {
             throw new RuntimeException("该零部件存在父组件关系，不能删除");
         }

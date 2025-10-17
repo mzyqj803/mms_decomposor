@@ -182,7 +182,7 @@ public class ComponentCacheServiceImpl implements ComponentCacheService {
         private String name;
         private String comment;
         private Boolean procurementFlag;
-        private Boolean commonPartsFlag;
+        private Integer commonPartsFlag;
         private java.time.LocalDateTime entryTs;
         private String entryUser;
         private java.time.LocalDateTime lastUpdateTs;
@@ -207,8 +207,8 @@ public class ComponentCacheServiceImpl implements ComponentCacheService {
         public Boolean getProcurementFlag() { return procurementFlag; }
         public void setProcurementFlag(Boolean procurementFlag) { this.procurementFlag = procurementFlag; }
         
-        public Boolean getCommonPartsFlag() { return commonPartsFlag; }
-        public void setCommonPartsFlag(Boolean commonPartsFlag) { this.commonPartsFlag = commonPartsFlag; }
+        public Integer getCommonPartsFlag() { return commonPartsFlag; }
+        public void setCommonPartsFlag(Integer commonPartsFlag) { this.commonPartsFlag = commonPartsFlag; }
         
         public java.time.LocalDateTime getEntryTs() { return entryTs; }
         public void setEntryTs(java.time.LocalDateTime entryTs) { this.entryTs = entryTs; }

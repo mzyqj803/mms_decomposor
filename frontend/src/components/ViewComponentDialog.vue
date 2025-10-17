@@ -24,9 +24,9 @@
               {{ componentData.procurementFlag ? '采购' : '自制' }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="通用件">
-            <el-tag :type="componentData.commonPartsFlag ? 'warning' : 'info'">
-              {{ componentData.commonPartsFlag ? '是' : '否' }}
+          <el-descriptions-item label="通用件类型">
+            <el-tag :type="componentData.commonPartsFlag === 1 ? 'warning' : (componentData.commonPartsFlag === 2 ? 'success' : 'info')">
+              {{ componentData.commonPartsFlag === 1 ? '装箱紧固件' : (componentData.commonPartsFlag === 2 ? '装配紧固件' : '非紧固件') }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">

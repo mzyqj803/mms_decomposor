@@ -13,6 +13,14 @@ public interface BreakdownService {
     Map<String, Object> breakdownContainer(Long containerId);
     
     /**
+     * 对单个箱包进行工艺分解（内部方法）
+     * @param containerId 箱包ID
+     * @param deleteOldRecords 是否删除旧记录
+     * @return 分解结果
+     */
+    Map<String, Object> breakdownContainer(Long containerId, boolean deleteOldRecords);
+    
+    /**
      * 对合同的所有箱包进行工艺分解
      * @param contractId 合同ID
      * @return 分解结果

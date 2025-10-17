@@ -47,10 +47,11 @@
         </el-radio-group>
       </el-form-item>
       
-      <el-form-item label="通用件" prop="commonPartsFlag">
+      <el-form-item label="通用件类型" prop="commonPartsFlag">
         <el-radio-group v-model="form.commonPartsFlag">
-          <el-radio :label="false">否</el-radio>
-          <el-radio :label="true">是</el-radio>
+          <el-radio :label="0">非紧固件</el-radio>
+          <el-radio :label="1">装箱紧固件</el-radio>
+          <el-radio :label="2">装配紧固件</el-radio>
         </el-radio-group>
       </el-form-item>
       
@@ -107,7 +108,7 @@ const form = reactive({
   componentCode: '',
   name: '',
   procurementFlag: false,
-  commonPartsFlag: false,
+  commonPartsFlag: 0,
   comment: ''
 })
 
@@ -127,7 +128,7 @@ const rules = {
     { required: true, message: '请选择采购标识', trigger: 'change' }
   ],
   commonPartsFlag: [
-    { required: true, message: '请选择是否为通用件', trigger: 'change' }
+    { required: true, message: '请选择通用件类型', trigger: 'change' }
   ]
 }
 
@@ -150,7 +151,7 @@ const loadComponentData = () => {
       componentCode: props.componentData.componentCode || '',
       name: props.componentData.name || '',
       procurementFlag: props.componentData.procurementFlag || false,
-      commonPartsFlag: props.componentData.commonPartsFlag || false,
+      commonPartsFlag: typeof props.componentData.commonPartsFlag === 'number' ? props.componentData.commonPartsFlag : (props.componentData.commonPartsFlag ? 1 : 0),
       comment: props.componentData.comment || ''
     })
   }
@@ -199,7 +200,7 @@ const handleClose = () => {
     componentCode: '',
     name: '',
     procurementFlag: false,
-    commonPartsFlag: false,
+    commonPartsFlag: 0,
     comment: ''
   })
   

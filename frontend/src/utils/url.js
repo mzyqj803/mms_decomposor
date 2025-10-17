@@ -27,3 +27,4 @@ export function convertToBackendUrl(relativePath) {
 export function isRelativePath(url) {
   return url.startsWith('/') && !url.startsWith('//')
 }
+

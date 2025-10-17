@@ -30,7 +30,11 @@ public class Components extends BaseEntity {
     private Boolean procurementFlag = false;
     
     @Column(name = "common_parts_flag")
-    private Boolean commonPartsFlag = false;
+    private Integer commonPartsFlag = 0;
+    
+    // 临时字段：用于接收父工件ID（不持久化到数据库）
+    @Transient
+    private String parentComponentId;
     
     // 一对多关系：组件规格
     @OneToMany(mappedBy = "component", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

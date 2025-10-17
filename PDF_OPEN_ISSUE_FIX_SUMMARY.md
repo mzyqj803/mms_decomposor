@@ -130,3 +130,4 @@ mms-redis      redis:6.0-alpine      Up About an hour 0.0.0.0:6379->6379/tcp
 5. **验证完成**：功能已重新部署并可用
 
 现在PDF文件应该能够正常在新窗口中打开，URL也会正确指向后端API端口！
+

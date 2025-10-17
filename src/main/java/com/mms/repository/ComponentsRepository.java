@@ -24,7 +24,7 @@ public interface ComponentsRepository extends JpaRepository<Components, Long> {
     
     List<Components> findByProcurementFlag(Boolean procurementFlag);
     
-    List<Components> findByCommonPartsFlag(Boolean commonPartsFlag);
+    List<Components> findByCommonPartsFlag(Integer commonPartsFlag);
     
     /**
      * 分页查询零部件（支持多条件搜索）

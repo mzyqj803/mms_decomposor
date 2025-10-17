@@ -80,10 +80,10 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="commonPartsFlag" label="通用件" width="100" align="center">
+          <el-table-column prop="commonPartsFlag" label="通用件" width="120" align="center">
             <template #default="{ row }">
-              <el-tag :type="row.commonPartsFlag ? 'warning' : 'info'">
-                {{ row.commonPartsFlag ? '是' : '否' }}
+              <el-tag :type="row.commonPartsFlag === 1 ? 'warning' : (row.commonPartsFlag === 2 ? 'success' : 'info')">
+                {{ row.commonPartsFlag === 1 ? '装箱紧固件' : (row.commonPartsFlag === 2 ? '装配紧固件' : '非紧固件') }}
               </el-tag>
             </template>
           </el-table-column>

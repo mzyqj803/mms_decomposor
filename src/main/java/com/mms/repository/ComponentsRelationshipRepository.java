@@ -34,4 +34,14 @@ public interface ComponentsRelationshipRepository extends JpaRepository<Componen
      */
     @Query("SELECT cr FROM ComponentsRelationship cr WHERE cr.child.componentCode = :childCode")
     List<ComponentsRelationship> findByChildComponentCode(@Param("childCode") String childCode);
+    
+    /**
+     * 根据子组件ID删除关系
+     */
+    void deleteByChildId(Long childId);
+    
+    /**
+     * 根据父组件ID删除关系
+     */
+    void deleteByParentId(Long parentId);
 }

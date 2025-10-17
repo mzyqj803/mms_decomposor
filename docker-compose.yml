@@ -22,6 +22,8 @@ services:
       - ./src/main/resources/sql/data_init/update_components_relationship_quantity_from_spec.sql:/docker-entrypoint-initdb.d/05-update_quantity_from_spec.sql
       - ./src/main/resources/sql/data_init/fastener_warehouse_data.sql:/docker-entrypoint-initdb.d/06-fastener_warehouse_data.sql
       - ./src/main/resources/sql/data_init/create_component_fastener_views.sql:/docker-entrypoint-initdb.d/07-create_component_fastener_views.sql
+      - ./src/main/resources/sql/data_init/update_procurement_flag.sql:/docker-entrypoint-initdb.d/08-update_procurement_flag.sql
+      - ./src/main/resources/sql/data_init/update_common_parts_flag.sql:/docker-entrypoint-initdb.d/09-update_common_parts_flag.sql
     networks:
       - mms-network
 
