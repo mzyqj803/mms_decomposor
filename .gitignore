@@ -43,3 +43,4 @@ build/
 /frontend/node_modules
 *.log 吧。  xzc
 /.idea/inspectionProfiles/Project_Default.xml
+release/

@@ -21,6 +21,7 @@
 |---------|---------|
 | `rebuild-deploy.bat` | 重新编译并部署 |
 | `rebuild-deploy-complete.bat` | 完整重新构建并部署（删除旧镜像） |
+| `export-offline-package.bat` | 导出Docker离线安装包（带日期） |
 
 ### 管理和维护脚本
 
