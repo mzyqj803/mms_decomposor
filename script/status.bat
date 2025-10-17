@@ -3,6 +3,9 @@ chcp 65001 >nul
 echo MMS制造管理系统状态检查...
 echo.
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 REM 检查Docker服务状态
 echo [1/4] 检查Docker服务状态...
 docker --version >nul 2>&1

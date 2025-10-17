@@ -40,13 +40,13 @@
 ### 方式一：生产环境启动 (推荐)
 ```cmd
 # 双击运行或在命令行执行
-start.bat
+script\start.bat
 ```
 
 ### 方式二：开发环境启动
 ```cmd
 # 开发模式启动，支持热重载
-dev-start.bat
+script\dev-start.bat
 ```
 
 ## 脚本说明
@@ -55,19 +55,19 @@ dev-start.bat
 
 | 脚本名称 | 功能描述 | 使用场景 |
 |---------|---------|---------|
-| `start.bat` | 一键启动生产环境 | 正式部署使用 |
-| `stop.bat` | 停止所有服务 | 停止系统 |
-| `restart.bat` | 重启系统 | 重启服务 |
-| `dev-start.bat` | 开发环境启动 | 开发调试使用 |
-| `stop-dev.bat` | 停止开发环境 | 停止开发服务 |
+| `script\start.bat` | 一键启动生产环境 | 正式部署使用 |
+| `script\stop.bat` | 停止所有服务 | 停止系统 |
+| `script\restart.bat` | 重启系统 | 重启服务 |
+| `script\dev-start.bat` | 开发环境启动 | 开发调试使用 |
+| `script\stop-dev.bat` | 停止开发环境 | 停止开发服务 |
 
 ### 管理脚本
 
 | 脚本名称 | 功能描述 |
 |---------|---------|
-| `status.bat` | 检查系统状态 |
-| `logs.bat` | 查看服务日志 |
-| `clean.bat` | 清理系统资源 |
+| `script\status.bat` | 检查系统状态 |
+| `script\logs.bat` | 查看服务日志 |
+| `script\clean.bat` | 清理系统资源 |
 
 ## 启动流程
 
@@ -291,7 +291,7 @@ docker-compose logs -f mariadb
 
 ### 清理系统
 ```cmd
-clean.bat
+script\clean.bat
 ```
 - 轻度清理: 仅删除容器
 - 中度清理: 删除容器和镜像
@@ -312,7 +312,7 @@ docker-compose exec redis redis-cli BGSAVE
 git pull
 
 # 重新构建和启动
-restart.bat
+script\restart.bat
 ```
 
 ## 性能优化

@@ -4,6 +4,9 @@ echo MMS制造管理系统启动 (调试模式)
 echo ================================
 echo.
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 REM 检查参数
 if "%1"=="--help" (
     echo 用法: start-debug.bat [选项]

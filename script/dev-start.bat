@@ -3,6 +3,9 @@ chcp 65001 >nul
 echo MMS制造管理系统开发模式启动...
 echo.
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 REM 检查环境
 echo [1/5] 检查开发环境...
 

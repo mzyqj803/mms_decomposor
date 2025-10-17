@@ -59,13 +59,13 @@ component:{componentCode}
 ### 1. 启动项目
 项目启动时会自动检测Redis连接并初始化缓存：
 ```bash
-./start.bat
+script\start.bat
 ```
 
 ### 2. 测试缓存功能
 使用提供的测试脚本：
 ```bash
-./test-redis-cache.bat
+script\test-redis-cache.bat
 ```
 
 ### 3. 手动管理缓存

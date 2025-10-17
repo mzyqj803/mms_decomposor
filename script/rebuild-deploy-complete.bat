@@ -5,6 +5,9 @@ echo MMS制造管理系统 - 完整重新构建部署
 echo ========================================
 echo.
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 REM 设置错误处理
 setlocal enabledelayedexpansion
 

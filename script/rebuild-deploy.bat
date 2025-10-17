@@ -5,6 +5,9 @@ echo MMS制造管理系统 - 重新编译部署
 echo ========================================
 echo.
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 REM 检查环境
 echo [1/6] 检查环境依赖...
 call java -version >nul 2>&1

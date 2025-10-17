@@ -2,6 +2,9 @@
 chcp 65001 >nul
 echo 停止MMS制造管理系统开发环境...
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 echo [1/2] 停止基础服务...
 docker-compose stop mariadb redis
 

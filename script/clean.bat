@@ -3,6 +3,9 @@ chcp 65001 >nul
 echo MMS制造管理系统清理工具...
 echo.
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 echo 警告: 此操作将删除所有容器、镜像和数据卷！
 echo 请确保您已经备份了重要数据。
 echo.

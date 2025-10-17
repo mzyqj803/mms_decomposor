@@ -201,11 +201,11 @@ cd mms_decomposor
 
 ### 2. 一键启动 (推荐)
 
-项目提供了便捷的 `start.bat` 脚本，可以自动完成环境检查、项目构建和服务启动：
+项目提供了便捷的 `script\start.bat` 脚本，可以自动完成环境检查、项目构建和服务启动：
 
 ```cmd
 # 一键启动所有服务
-start.bat
+script\start.bat
 ```
 
 **脚本功能：**
@@ -256,7 +256,7 @@ docker-compose ps
 
 ### 1. 自动初始化 (推荐)
 
-使用 `start.bat` 脚本启动时，数据库会自动初始化。Docker Compose 配置中已经包含了数据库初始化脚本。
+使用 `script\start.bat` 脚本启动时，数据库会自动初始化。Docker Compose 配置中已经包含了数据库初始化脚本。
 
 ### 2. 手动初始化 (可选)
 
@@ -296,7 +296,7 @@ docker exec -i mms_decomposor-mariadb-1 mysql -u mms_user -pmms_password mms_db 
 
 ### 1. 一键部署 (推荐)
 
-使用 `start.bat` 脚本已经完成了所有部署步骤，包括：
+使用 `script\start.bat` 脚本已经完成了所有部署步骤，包括：
 - Docker镜像构建
 - 服务启动
 - 数据库初始化
@@ -350,43 +350,43 @@ curl http://localhost:9000
 ### 1. 启动脚本
 ```cmd
 # 一键启动所有服务
-start.bat
+script\start.bat
 
 # 开发模式启动 (支持热重载)
-dev-start.bat
+script\dev-start.bat
 ```
 
 ### 2. 管理脚本
 ```cmd
 # 停止所有服务
-stop.bat
+script\stop.bat
 
 # 重启所有服务
-restart.bat
+script\restart.bat
 
 # 清理构建文件和日志
-clean.bat
+script\clean.bat
 ```
 
 ### 3. 检查脚本
 ```cmd
 # 检查环境依赖
-check-env.bat
+script\check-env.bat
 
 # 检查服务状态
-status.bat
+script\status.bat
 
 # 查看应用日志
-logs.bat
+script\logs.bat
 ```
 
 ### 4. 测试脚本
 ```cmd
 # 运行测试命令
-test-commands.bat
+script\test-commands.bat
 
 # 测试Redis缓存功能
-test-redis-cache.bat
+script\test-redis-cache.bat
 ```
 
 ### 1. 快速启动指南
@@ -401,7 +401,7 @@ test-redis-cache.bat
    ```
 3. **一键启动**
    ```cmd
-   start.bat
+   script\start.bat
    ```
 4. **访问应用**
    - 前端: http://localhost:9000
@@ -414,23 +414,23 @@ test-redis-cache.bat
 在启动前，可以使用环境检查脚本：
 ```cmd
 # 检查所有环境依赖
-check-env.bat
+script\check-env.bat
 ```
 
 ### 3. 服务管理
 
 ```cmd
 # 查看服务状态
-status.bat
+script\status.bat
 
 # 查看应用日志
-logs.bat
+script\logs.bat
 
 # 停止服务
-stop.bat
+script\stop.bat
 
 # 重启服务
-restart.bat
+script\restart.bat
 ```
 
 ## 服务配置
@@ -443,9 +443,7 @@ restart.bat
 mkdir C:\Services\MMS
 
 # 复制启动脚本
-copy start.bat C:\Services\MMS\
-copy stop.bat C:\Services\MMS\
-copy restart.bat C:\Services\MMS\
+xcopy script C:\Services\MMS\script\ /E /I /Y
 ```
 
 #### 1.2 配置Windows服务 (使用NSSM)
@@ -459,12 +457,12 @@ copy restart.bat C:\Services\MMS\
 setx PATH "%PATH%;C:\Tools\nssm\win64"
 
 # 创建后端服务
-nssm install MMS-Backend "C:\Services\MMS\start.bat"
+nssm install MMS-Backend "C:\Services\MMS\script\start.bat"
 nssm set MMS-Backend Description "MMS Manufacturing Management System Backend"
 nssm set MMS-Backend Start SERVICE_AUTO_START
 
 # 创建前端服务
-nssm install MMS-Frontend "C:\Services\MMS\start.bat"
+nssm install MMS-Frontend "C:\Services\MMS\script\start.bat"
 nssm set MMS-Frontend Description "MMS Manufacturing Management System Frontend"
 nssm set MMS-Frontend Start SERVICE_AUTO_START
 ```

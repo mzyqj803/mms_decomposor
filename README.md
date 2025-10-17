@@ -341,18 +341,19 @@ mms_decomposor/
 ├── UPGRADE_GUIDE.md                   # 升级指南
 ├── WINDOWS_SETUP.md                   # Windows环境配置
 ├── REDIS_CACHE_IMPLEMENTATION.md      # Redis缓存实现说明
-├── start.bat                          # Windows启动脚本
 ├── start.sh                           # Linux启动脚本
-├── dev-start.bat                      # Windows开发启动脚本
-├── stop.bat                           # Windows停止脚本
 ├── stop.sh                            # Linux停止脚本
-├── restart.bat                        # Windows重启脚本
-├── clean.bat                          # Windows清理脚本
-├── check-env.bat                      # Windows环境检查脚本
-├── status.bat                         # Windows状态检查脚本
-├── logs.bat                           # Windows日志查看脚本
-├── test-commands.bat                  # Windows测试命令脚本
-└── test-redis-cache.bat               # Windows Redis缓存测试脚本
+└── script/                            # Windows批处理脚本目录
+    ├── start.bat                      # Windows启动脚本
+    ├── dev-start.bat                  # Windows开发启动脚本
+    ├── stop.bat                       # Windows停止脚本
+    ├── restart.bat                    # Windows重启脚本
+    ├── clean.bat                      # Windows清理脚本
+    ├── check-env.bat                  # Windows环境检查脚本
+    ├── status.bat                     # Windows状态检查脚本
+    ├── logs.bat                       # Windows日志查看脚本
+    ├── test-commands.bat              # Windows测试命令脚本
+    └── test-redis-cache.bat           # Windows Redis缓存测试脚本
 ```
 
 ## 快速开始
@@ -397,7 +398,7 @@ cd mms_decomposor
 2. **一键启动**
 ```cmd
 # 双击运行或在命令行执行
-start.bat
+script\start.bat
 ```
 
 3. **访问应用**
@@ -431,7 +432,7 @@ chmod +x start.sh
 #### Windows开发环境
 ```cmd
 # 开发模式启动，支持热重载
-dev-start.bat
+script\dev-start.bat
 ```
 
 #### Linux/Mac开发环境
@@ -456,16 +457,16 @@ npm run dev
 项目提供了多个实用脚本，方便开发和运维：
 
 #### Windows脚本
-- `start.bat` - 一键启动所有服务
-- `dev-start.bat` - 开发模式启动（支持热重载）
-- `stop.bat` - 停止所有服务
-- `restart.bat` - 重启所有服务
-- `clean.bat` - 清理构建文件和日志
-- `check-env.bat` - 检查环境依赖
-- `status.bat` - 检查服务状态
-- `logs.bat` - 查看应用日志
-- `test-commands.bat` - 运行测试命令
-- `test-redis-cache.bat` - 测试Redis缓存功能
+- `script\start.bat` - 一键启动所有服务
+- `script\dev-start.bat` - 开发模式启动（支持热重载）
+- `script\stop.bat` - 停止所有服务
+- `script\restart.bat` - 重启所有服务
+- `script\clean.bat` - 清理构建文件和日志
+- `script\check-env.bat` - 检查环境依赖
+- `script\status.bat` - 检查服务状态
+- `script\logs.bat` - 查看应用日志
+- `script\test-commands.bat` - 运行测试命令
+- `script\test-redis-cache.bat` - 测试Redis缓存功能
 
 #### Linux/Mac脚本
 - `start.sh` - 一键启动所有服务

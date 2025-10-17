@@ -2,6 +2,9 @@
 chcp 65001 >nul
 echo 停止MMS制造管理系统...
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 REM 停止所有服务
 docker-compose down
 

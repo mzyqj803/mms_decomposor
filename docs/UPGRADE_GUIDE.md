@@ -51,7 +51,7 @@
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
 
 # 启动项目
-.\start.bat
+script\start.bat
 ```
 
 ### Linux/Mac 环境

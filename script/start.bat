@@ -2,6 +2,9 @@
 chcp 65001 >nul 2>&1
 echo Starting MMS Manufacturing Management System...
 
+REM 切换到项目根目录
+cd /d "%~dp0.."
+
 REM Check if Java is installed
 echo Checking Java environment...
 call java -version >nul 2>&1
