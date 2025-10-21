@@ -15,11 +15,6 @@
         router
         class="sidebar-menu"
       >
-        <el-menu-item index="/">
-          <el-icon><House /></el-icon>
-          <template #title>仪表盘</template>
-        </el-menu-item>
-        
         <el-menu-item index="/contracts">
           <el-icon><Document /></el-icon>
           <template #title>合同管理</template>

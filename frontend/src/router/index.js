@@ -15,9 +15,7 @@ const routes = [
     children: [
       {
         path: '',
-        name: 'Dashboard',
-        component: () => import('@/views/Dashboard.vue'),
-        meta: { title: '仪表盘' }
+        redirect: '/contracts'
       },
       {
         path: '/contracts',
