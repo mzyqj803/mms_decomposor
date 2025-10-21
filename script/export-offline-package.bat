@@ -111,7 +111,7 @@ echo [✓] 所有镜像导出完成
 echo.
 echo [6/9] 复制项目文件...
 cd "%PROJECT_ROOT%"
-xcopy /E /I /Y "docker-compose.yml" "%RELEASE_DIR%\%PACKAGE_NAME%\project-files\" >nul
+copy /Y "docker-compose.yml" "%RELEASE_DIR%\%PACKAGE_NAME%\project-files\" >nul
 xcopy /E /I /Y "src\main\resources\sql\data_init" "%RELEASE_DIR%\%PACKAGE_NAME%\project-files\data_init\" >nul
 xcopy /E /I /Y "docs\*.md" "%RELEASE_DIR%\%PACKAGE_NAME%\project-files\docs\" >nul 2>nul
 cd script
@@ -125,6 +125,9 @@ REM 创建Windows安装脚本
 echo @echo off
 echo chcp 65001 ^>nul
 echo setlocal enabledelayedexpansion
+echo.
+echo REM 切换到脚本所在目录
+echo cd /d "%%~dp0"
 echo.
 echo echo ============================================================
 echo echo MMS制造管理系统 - 离线安装脚本
@@ -157,16 +160,40 @@ echo.
 echo echo.
 echo echo [3/4] 复制配置文件...
 echo copy /Y project-files\docker-compose.yml .
+echo echo [提示] 创建数据库初始化目录...
+echo if not exist src\main\resources\sql\data_init mkdir src\main\resources\sql\data_init
+echo xcopy /E /I /Y project-files\data_init src\main\resources\sql\data_init ^>nul
 echo echo [✓] 配置文件复制完成
 echo.
 echo echo.
 echo echo [4/4] 启动服务...
+echo echo [提示] 检查并清理旧容器和数据卷...
+echo docker rm -f mms-redis mms-mariadb mms-backend mms-frontend ^>nul 2^>^&1
+echo docker-compose down -v ^>nul 2^>^&1
+echo echo [提示] 正在启动服务...
 echo docker-compose up -d
 echo if errorlevel 1 ^(
 echo     echo [错误] 服务启动失败
 echo     pause
 echo     exit /b 1
 echo ^)
+echo echo [✓] 容器启动成功
+echo.
+echo echo [提示] 等待数据库就绪并初始化...
+echo echo 这可能需要2-3分钟，请耐心等待...
+echo echo.
+echo :wait_db
+echo docker exec mms-mariadb mariadb -uroot -ppassword -e "SELECT 1" ^>nul 2^>^&1
+echo if errorlevel 1 ^(
+echo     echo 等待中...
+echo     timeout /t 10 /nobreak ^>nul
+echo     goto :wait_db
+echo ^)
+echo echo [✓] 数据库已就绪
+echo.
+echo echo [提示] 等待后端服务启动...
+echo echo 正在等待后端服务完成启动（约30秒）...
+echo timeout /t 30 /nobreak ^>nul
 echo echo [✓] 服务启动成功
 echo.
 echo echo.
@@ -175,9 +202,9 @@ echo echo 安装完成！
 echo echo ============================================================
 echo echo.
 echo echo 服务访问地址：
-echo echo   前端应用: http://localhost:9000
-echo echo   后端API: http://localhost:8080/api
-echo echo   数据库: localhost:3307
+echo echo   Frontend: http://localhost:9000
+echo echo   Backend: http://localhost:8080/api  
+echo echo   Database: localhost:3307
 echo echo   Redis: localhost:6379
 echo echo.
 echo echo 常用命令：
@@ -188,7 +215,7 @@ echo echo   启动服务: docker-compose start
 echo echo   重启服务: docker-compose restart
 echo echo.
 echo pause
-) > "%RELEASE_DIR%\%PACKAGE_NAME%\install.bat"
+) > "%RELEASE_DIR%\%PACKAGE_NAME%\install.bat" 2>nul
 
 REM 创建Linux安装脚本
 (
@@ -256,197 +283,94 @@ echo [✓] 安装脚本创建完成
 
 echo.
 echo [8/9] 创建说明文档...
-(
-echo # MMS制造管理系统 - Docker离线安装包
+> "%RELEASE_DIR%\%PACKAGE_NAME%\README.md" (
+echo # MMS Manufacturing Management System - Docker Offline Package
 echo.
-echo ## 包内容
+echo ## Package Contents
 echo.
-echo - `docker-images/` - Docker镜像文件
-echo   - `mariadb-11.tar` - MariaDB 11 数据库镜像
-echo   - `redis-6.0-alpine.tar` - Redis 6.0 缓存镜像
-echo   - `mms-backend-latest.tar` - MMS后端服务镜像
-echo   - `mms-frontend-latest.tar` - MMS前端服务镜像
-echo - `project-files/` - 项目配置文件
-echo   - `docker-compose.yml` - Docker Compose配置
-echo   - `data_init/` - 数据库初始化脚本
-echo - `install.bat` - Windows安装脚本
-echo - `install.sh` - Linux安装脚本
-echo - `README.md` - 本说明文档
+echo - docker-images/ - 4 Docker image files
+echo - project-files/ - Configuration and initialization files
+echo - install.bat - Windows installation script
+echo - install.sh - Linux installation script
+echo - README.md - This document
 echo.
-echo ## 系统要求
+echo ## System Requirements
 echo.
-echo ### 硬件要求
-echo - CPU: 2核及以上
-echo - 内存: 4GB及以上
-echo - 磁盘: 10GB可用空间
+echo ### Hardware
+echo - CPU: 2+ cores
+echo - Memory: 4GB+ RAM
+echo - Disk: 10GB available space
 echo.
-echo ### 软件要求
+echo ### Software
 echo - Docker 20.10+
 echo - Docker Compose 2.0+
 echo.
-echo ### Windows系统
-echo - Windows 10/11 Pro、Enterprise 或 Education（支持Hyper-V）
-echo - 或 Windows 10/11 Home with WSL2
-echo - Docker Desktop for Windows
+echo ## Installation
 echo.
-echo ### Linux系统
-echo - Ubuntu 20.04+、CentOS 7+、Debian 10+ 或其他主流Linux发行版
-echo - Docker Engine 20.10+
-echo - Docker Compose 2.0+
+echo ### Windows
 echo.
-echo ## 安装步骤
+echo 1. Extract the package to any directory
+echo 2. Run install.bat
+echo 3. Wait 3-5 minutes for installation to complete
+echo 4. Access the system at http://localhost:9000
 echo.
-echo ### Windows系统
+echo ### Linux
 echo.
-echo 1. **解压安装包**
-echo    ```
-echo    解压到任意目录，例如：C:\mms-system
-echo    ```
+echo 1. Extract: tar -xzf mms-offline-package.tar.gz
+echo 2. Run: sudo ./install.sh
+echo 3. Wait 3-5 minutes for installation to complete
+echo 4. Access the system at http://localhost:9000
 echo.
-echo 2. **运行安装脚本**
-echo    ```
-echo    双击运行 install.bat
-echo    或在命令行执行：
-echo    install.bat
-echo    ```
+echo ## Default Credentials
 echo.
-echo 3. **等待安装完成**
-echo    - 脚本会自动加载所有Docker镜像
-echo    - 自动启动所有服务
-echo    - 通常需要3-5分钟
-echo.
-echo 4. **访问系统**
-echo    ```
-echo    前端应用: http://localhost:9000
-echo    后端API: http://localhost:8080/api
-echo    ```
-echo.
-echo ### Linux系统
-echo.
-echo 1. **解压安装包**
-echo    ```bash
-echo    tar -xzf mms-offline-package.tar.gz
-echo    cd mms-offline-package
-echo    ```
-echo.
-echo 2. **添加执行权限**
-echo    ```bash
-echo    chmod +x install.sh
-echo    ```
-echo.
-echo 3. **运行安装脚本**
-echo    ```bash
-echo    sudo ./install.sh
-echo    ```
-echo.
-echo 4. **等待安装完成**
-echo    - 脚本会自动加载所有Docker镜像
-echo    - 自动启动所有服务
-echo    - 通常需要3-5分钟
-echo.
-echo 5. **访问系统**
-echo    ```
-echo    前端应用: http://localhost:9000
-echo    后端API: http://localhost:8080/api
-echo    ```
-echo.
-echo ## 常用命令
-echo.
-echo ### 查看服务状态
-echo ```bash
-echo docker-compose ps
-echo ```
-echo.
-echo ### 查看日志
-echo ```bash
-echo # 查看所有服务日志
-echo docker-compose logs -f
-echo.
-echo # 查看特定服务日志
-echo docker-compose logs -f backend
-echo docker-compose logs -f frontend
-echo docker-compose logs -f mariadb
-echo docker-compose logs -f redis
-echo ```
-echo.
-echo ### 停止服务
-echo ```bash
-echo docker-compose stop
-echo ```
-echo.
-echo ### 启动服务
-echo ```bash
-echo docker-compose start
-echo ```
-echo.
-echo ### 重启服务
-echo ```bash
-echo docker-compose restart
-echo ```
-echo.
-echo ### 停止并删除所有容器
-echo ```bash
-echo docker-compose down
-echo ```
-echo.
-echo ### 完全清理（包括数据卷）
-echo ```bash
-echo docker-compose down -v
-echo ```
-echo.
-echo ## 默认账号
-echo.
-echo ### 数据库
-echo - 主机: localhost:3307
-echo - 数据库: mms_db
-echo - 用户名: mms_user
-echo - 密码: mms_password
-echo - Root密码: password
+echo ### Database
+echo - Host: localhost:3307
+echo - Database: mms_db
+echo - Username: mms_user
+echo - Password: mms_password
 echo.
 echo ### Redis
-echo - 主机: localhost:6379
-echo - 密码: 无
+echo - Host: localhost:6379
+echo - No password
 echo.
-echo ## 故障排查
+echo ## Common Commands
 echo.
-echo ### 端口冲突
-echo 如果遇到端口被占用的错误，请检查以下端口是否被其他程序占用：
-echo - 9000 ^(前端^)
-echo - 8080 ^(后端^)
-echo - 3307 ^(数据库^)
-echo - 6379 ^(Redis^)
+echo - Check status: docker-compose ps
+echo - View logs: docker-compose logs -f
+echo - Stop services: docker-compose stop
+echo - Start services: docker-compose start
+echo - Restart services: docker-compose restart
+echo - Remove all: docker-compose down
 echo.
-echo 可以修改 `docker-compose.yml` 中的端口映射。
+echo ## Access URLs
 echo.
-echo ### 内存不足
-echo 如果系统内存不足，可以尝试：
-echo 1. 关闭其他不必要的程序
-echo 2. 增加Docker的内存限制（Docker Desktop设置）
+echo - Frontend: http://localhost:9000
+echo - Backend API: http://localhost:8080/api
+echo - Database: localhost:3307
+echo - Redis: localhost:6379
 echo.
-echo ### 镜像加载失败
-echo 如果镜像加载失败，请检查：
-echo 1. Docker服务是否正常运行
-echo 2. 磁盘空间是否充足
-echo 3. 镜像文件是否完整（重新导出）
+echo ## Troubleshooting
 echo.
-echo ## 技术支持
+echo ### Port Conflicts
+echo Check if ports 9000, 8080, 3307, 6379 are available.
+echo Modify port mappings in docker-compose.yml if needed.
 echo.
-echo 如遇到问题，请检查：
-echo 1. Docker版本是否符合要求
-echo 2. 系统资源是否充足
-echo 3. 防火墙或安全软件是否阻止了Docker
-echo 4. 查看Docker日志获取详细错误信息
+echo ### Memory Issues
+echo Increase Docker memory limit in Docker Desktop settings.
 echo.
-echo ## 版本信息
+echo ### Image Load Failures
+echo Ensure Docker is running and sufficient disk space is available.
 echo.
-echo - 导出日期: %EXPORT_DATE%
-echo - 系统版本: v3.0
-echo - Docker Compose版本: 2.0+
+echo ## Version Information
 echo.
-echo ## 许可证
+echo - Export Date: %EXPORT_DATE%
+echo - System Version: v3.0
+echo - Docker Compose: 2.0+
 echo.
-echo 本软件仅供内部使用，禁止未经授权的复制和分发。
-) > "%RELEASE_DIR%\%PACKAGE_NAME%\README.md"
+echo ## License
+echo.
+echo For internal use only. Unauthorized distribution prohibited.
+)
 
 echo [✓] 说明文档创建完成
 
@@ -455,45 +379,105 @@ echo [9/9] 打包离线安装包...
 echo [提示] 正在压缩文件，这可能需要几分钟...
 
 REM 检查是否有7-Zip
+set SEVENZIP_CMD=
 where 7z >nul 2>&1
 if not errorlevel 1 (
-    cd "%RELEASE_DIR%"
-    7z a -ttar "%PACKAGE_NAME%.tar" "%PACKAGE_NAME%"
-    7z a -tgzip "%PACKAGE_NAME%.tar.gz" "%PACKAGE_NAME%.tar"
-    del "%PACKAGE_NAME%.tar"
-    cd "%PROJECT_ROOT%\script"
-    echo [✓] 离线安装包创建完成: %PACKAGE_NAME%.tar.gz
+    set SEVENZIP_CMD=7z
 ) else (
-    echo [提示] 未检测到7-Zip，将创建未压缩的安装包
-    echo [✓] 离线安装包目录: %PACKAGE_NAME%
-    echo [提示] 建议安装7-Zip以创建压缩包，或手动压缩该目录
+    REM Try full path if not in PATH
+    if exist "%ProgramFiles%\7-Zip\7z.exe" (
+        set "SEVENZIP_CMD=%ProgramFiles%\7-Zip\7z.exe"
+    ) else if exist "%ProgramFiles(x86)%\7-Zip\7z.exe" (
+        set "SEVENZIP_CMD=%ProgramFiles(x86)%\7-Zip\7z.exe"
+    )
+)
+
+if defined SEVENZIP_CMD (
+    echo [INFO] Found 7-Zip: %SEVENZIP_CMD%
+    cd "%RELEASE_DIR%"
+    
+    REM Find 7z.sfx file
+    set SFX_MODULE=
+    if exist "%ProgramFiles%\7-Zip\7z.sfx" set "SFX_MODULE=%ProgramFiles%\7-Zip\7z.sfx"
+    if exist "%ProgramFiles(x86)%\7-Zip\7z.sfx" set "SFX_MODULE=%ProgramFiles(x86)%\7-Zip\7z.sfx"
+    
+    if defined SFX_MODULE (
+        echo [INFO] Creating self-extracting installer...
+        
+        REM Create SFX config
+        (
+            echo ;!@Install@!UTF-8!
+            echo Title="MMS System Offline Installer"
+            echo BeginPrompt="MMS Manufacturing Management System\n\nThis will:\n1. Extract Docker images and files\n2. Run installation script\n\nRequires Docker Desktop.\n\nClick OK to continue..."
+            echo ExecuteFile="%PACKAGE_NAME%\install.bat"
+            echo ExecuteParameters=""
+            echo GUIMode="2"
+            echo ;!@InstallEnd@!
+        ) > "%PACKAGE_NAME%_config.txt"
+        
+        REM Create 7z archive
+        "%SEVENZIP_CMD%" a -t7z "%PACKAGE_NAME%.7z" "%PACKAGE_NAME%" -mx=5
+        
+        REM Merge: 7z.sfx + config + archive = .exe
+        copy /b "!SFX_MODULE!" + "%PACKAGE_NAME%_config.txt" + "%PACKAGE_NAME%.7z" "%PACKAGE_NAME%-installer.exe"
+        
+        REM Cleanup
+        del "%PACKAGE_NAME%_config.txt"
+        del "%PACKAGE_NAME%.7z"
+        
+        cd "%PROJECT_ROOT%\script"
+        echo [DONE] Self-extracting installer created: %PACKAGE_NAME%-installer.exe
+        echo [INFO] Double-click .exe to install
+    ) else (
+        REM Create traditional archive
+        "%SEVENZIP_CMD%" a -ttar "%PACKAGE_NAME%.tar" "%PACKAGE_NAME%"
+        "%SEVENZIP_CMD%" a -tgzip "%PACKAGE_NAME%.tar.gz" "%PACKAGE_NAME%.tar"
+        del "%PACKAGE_NAME%.tar"
+        cd "%PROJECT_ROOT%\script"
+        echo [DONE] Offline package created: %PACKAGE_NAME%.tar.gz
+        echo [INFO] 7z.sfx not found, cannot create self-extracting installer
+    )
+) else (
+    echo [INFO] 7-Zip not detected, creating uncompressed package
+    echo [DONE] Offline package directory: %PACKAGE_NAME%
+    echo [INFO] Install 7-Zip to create self-extracting installer
 )
 
 echo.
 echo ============================================================
-echo 导出完成！
+echo Export Complete!
 echo ============================================================
 echo.
-echo 安装包位置：
-echo   目录: %RELEASE_DIR%\%PACKAGE_NAME%
+echo Package Location:
+echo   Directory: %RELEASE_DIR%\%PACKAGE_NAME%
+if exist "%RELEASE_DIR%\%PACKAGE_NAME%-installer.exe" (
+    echo   Installer: %RELEASE_DIR%\%PACKAGE_NAME%-installer.exe
+)
 if exist "%RELEASE_DIR%\%PACKAGE_NAME%.tar.gz" (
-    echo   压缩包: %RELEASE_DIR%\%PACKAGE_NAME%.tar.gz
+    echo   Archive: %RELEASE_DIR%\%PACKAGE_NAME%.tar.gz
 )
 echo.
-echo 安装包内容：
-echo   - Docker镜像（4个）
-echo   - 项目配置文件
-echo   - Windows安装脚本（install.bat）
-echo   - Linux安装脚本（install.sh）
-echo   - 说明文档（README.md）
+echo Package Contents:
+echo   - Docker images ^(4 files^)
+echo   - Configuration files
+echo   - install.bat ^(Windows^)
+echo   - install.sh ^(Linux^)
+echo   - README.md
 echo.
-echo 使用方法：
-echo   1. 将安装包复制到目标服务器
-if exist "%PACKAGE_NAME%.tar.gz" (
-    echo   2. 解压: tar -xzf %PACKAGE_NAME%.tar.gz
+echo Usage:
+if exist "%RELEASE_DIR%\%PACKAGE_NAME%-installer.exe" (
+    echo   [Auto Install]
+    echo   1. Copy %PACKAGE_NAME%-installer.exe to target server
+    echo   2. Double-click to run
+    echo.
+    echo   [Manual Install]
 )
-echo   3. Windows: 运行 install.bat
-echo   4. Linux: 运行 sudo ./install.sh
+echo   1. Copy package to target server
+if exist "%RELEASE_DIR%\%PACKAGE_NAME%.tar.gz" (
+    echo   2. Extract: tar -xzf %PACKAGE_NAME%.tar.gz
+)
+echo   3. Windows: Run install.bat
+echo   4. Linux: Run sudo ./install.sh
 echo.
 pause
 

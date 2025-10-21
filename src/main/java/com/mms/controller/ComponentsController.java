@@ -1,5 +1,6 @@
 package com.mms.controller;
 
+import com.mms.dto.ComponentDetailDTO;
 import com.mms.entity.Components;
 import com.mms.entity.ComponentsSpec;
 import com.mms.service.ComponentsService;
@@ -40,6 +41,15 @@ public class ComponentsController {
     public ResponseEntity<Components> getComponent(@PathVariable Long id) {
         Components component = componentsService.getComponentById(id);
         return ResponseEntity.ok(component);
+    }
+    
+    /**
+     * 获取零部件完整详情（包括关联关系）
+     */
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<ComponentDetailDTO> getComponentDetail(@PathVariable Long id) {
+        ComponentDetailDTO detail = componentsService.getComponentDetail(id);
+        return ResponseEntity.ok(detail);
     }
     
     /**

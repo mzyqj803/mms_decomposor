@@ -11,6 +11,11 @@ export const componentsApi = {
     return api.get(`/components/${id}`)
   },
   
+  // 获取零部件完整详情（包括关联关系）
+  getComponentDetail(id) {
+    return api.get(`/components/${id}/detail`)
+  },
+  
   // 创建零部件
   createComponent(data) {
     return api.post('/components', data)

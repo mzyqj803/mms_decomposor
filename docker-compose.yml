@@ -24,6 +24,13 @@ services:
       - ./src/main/resources/sql/data_init/create_component_fastener_views.sql:/docker-entrypoint-initdb.d/07-create_component_fastener_views.sql
       - ./src/main/resources/sql/data_init/update_procurement_flag.sql:/docker-entrypoint-initdb.d/08-update_procurement_flag.sql
       - ./src/main/resources/sql/data_init/update_common_parts_flag.sql:/docker-entrypoint-initdb.d/09-update_common_parts_flag.sql
+      - ./src/main/resources/sql/data_init/fix_duplicate_component_specs.sql:/docker-entrypoint-initdb.d/10-fix_duplicate_specs.sql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
     networks:
       - mms-network
 
@@ -35,6 +42,12 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks:
       - mms-network
 
@@ -56,8 +69,16 @@ services:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
     depends_on:
-      - mariadb
-      - redis
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     networks:
       - mms-network
 
@@ -73,7 +94,8 @@ services:
     ports:
       - "9000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - mms-network
 

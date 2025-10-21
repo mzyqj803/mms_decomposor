@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS container_components (
 ) ENGINE=InnoDB;
 
 -- 5) Components_Spec
+-- Note: UNIQUE constraint (Component_ID, Spec_Code) will be added by fix_duplicate_component_specs.sql after data cleanup
 CREATE TABLE IF NOT EXISTS components_spec (
   ID                INT PRIMARY KEY AUTO_INCREMENT,
   Component_ID      INT,

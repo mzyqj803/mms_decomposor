@@ -31,3 +31,5 @@ SELECT
     SUM(CASE WHEN procurement_flag = 0 THEN 1 ELSE 0 END) as self_made_components
 FROM components;
 
+
+

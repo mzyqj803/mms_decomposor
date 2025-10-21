@@ -47,10 +47,8 @@
       <div v-if="specs.length > 0" class="specs-section">
         <h4>规格参数</h4>
         <el-table :data="specs" stripe style="width: 100%" max-height="300">
-          <el-table-column prop="specName" label="规格名称" min-width="150" />
-          <el-table-column prop="specValue" label="规格值" min-width="120" />
-          <el-table-column prop="unit" label="单位" width="80" />
-          <el-table-column prop="description" label="描述" min-width="200" />
+          <el-table-column prop="specCode" label="规格名称" min-width="200" />
+          <el-table-column prop="specValue" label="规格值" min-width="300" />
         </el-table>
       </div>
 
@@ -135,22 +133,22 @@ const loadComponentDetails = async () => {
   
   loading.value = true
   try {
-    // 获取零部件详细信息
-    const component = await componentsApi.getComponent(props.componentData.id)
+    // 获取零部件详细信息（包括完整的关联关系）
+    const detail = await componentsApi.getComponentDetail(props.componentData.id)
     
     // 获取规格信息
-    if (component.specs) {
-      specs.value = component.specs
+    if (detail.specs) {
+      specs.value = detail.specs
     }
     
     // 获取工艺信息
-    if (component.processes) {
-      processes.value = component.processes
+    if (detail.processes) {
+      processes.value = detail.processes
     }
     
     // 获取关联关系
-    const children = component.children || []
-    const parents = component.parents || []
+    const children = detail.children || []
+    const parents = detail.parents || []
     
     relationships.value = [
       ...children.map(rel => ({

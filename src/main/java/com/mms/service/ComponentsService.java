@@ -1,5 +1,6 @@
 package com.mms.service;
 
+import com.mms.dto.ComponentDetailDTO;
 import com.mms.entity.Components;
 import com.mms.entity.ComponentsSpec;
 import org.springframework.data.domain.Page;
@@ -17,6 +18,11 @@ public interface ComponentsService {
      * 根据ID获取零部件
      */
     Components getComponentById(Long id);
+    
+    /**
+     * 获取零部件详情（包括完整的关联关系）
+     */
+    ComponentDetailDTO getComponentDetail(Long id);
     
     /**
      * 创建零部件

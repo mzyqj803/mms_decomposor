@@ -21,7 +21,7 @@
 |---------|---------|
 | `rebuild-deploy.bat` | 重新编译并部署 |
 | `rebuild-deploy-complete.bat` | 完整重新构建并部署（删除旧镜像） |
-| `export-offline-package.bat` | 导出Docker离线安装包（带日期） |
+| `export-offline-package.bat` | 导出Docker离线安装包（自解压.exe程序） |
 
 ### 管理和维护脚本
 
@@ -187,6 +187,57 @@ script\start-debug.bat --skip-build
 1. **轻度清理** - 仅删除容器
 2. **中度清理** - 删除容器和镜像
 3. **重度清理** - 删除所有数据（⚠️ 谨慎使用）
+
+### export-offline-package.bat - 导出离线安装包
+
+**功能：**
+- ✅ 自动构建最新的 Docker 镜像
+- ✅ 导出所有必需的 Docker 镜像（MariaDB、Redis、Backend、Frontend）
+- ✅ 复制配置文件和初始化脚本
+- ✅ 生成自动安装脚本（Windows & Linux）
+- ✅ **创建自解压 .exe 安装程序**（双击即可安装）
+
+**输出文件：**
+```
+release/
+└── mms-offline-package-20251017/      # 安装包目录
+    ├── docker-images/                 # Docker镜像文件
+    │   ├── mariadb-11.tar
+    │   ├── redis-6.0-alpine.tar
+    │   ├── mms-backend-latest.tar
+    │   └── mms-frontend-latest.tar
+    ├── project-files/                 # 项目配置文件
+    │   ├── docker-compose.yml
+    │   ├── data_init/
+    │   └── docs/
+    ├── install.bat                    # Windows 安装脚本
+    ├── install.sh                     # Linux 安装脚本
+    └── README.md                      # 安装说明
+    
+mms-offline-package-20251017-installer.exe  # 自解压安装程序 ⭐
+```
+
+**使用方法：**
+
+**方式一：自动安装（推荐）**
+1. 将 `mms-offline-package-YYYYMMDD-installer.exe` 复制到目标服务器
+2. 双击运行，自动解压并启动安装
+
+**方式二：手动安装**
+1. 将安装包目录复制到目标服务器
+2. Windows: 运行 `install.bat`
+3. Linux: 运行 `sudo ./install.sh`
+
+**技术实现：**
+- 使用 7-Zip SFX (Self-Extracting Archive) 技术
+- 自解压程序包含安装向导界面
+- 解压后自动执行 `install.bat`
+- 支持一键式部署体验
+
+**注意事项：**
+- 需要安装 7-Zip 才能生成自解压程序
+- 如果未安装 7-Zip，将创建传统的 .tar.gz 压缩包
+- 安装包文件名包含导出日期（格式：YYYYMMDD）
 
 ## 📝 技术说明
 

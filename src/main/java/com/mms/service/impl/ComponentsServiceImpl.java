@@ -1,5 +1,6 @@
 package com.mms.service.impl;
 
+import com.mms.dto.ComponentDetailDTO;
 import com.mms.entity.Components;
 import com.mms.entity.ComponentsSpec;
 import com.mms.entity.ComponentsRelationship;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -63,6 +65,113 @@ public class ComponentsServiceImpl implements ComponentsService {
         cacheService.set(cacheKey, component, 10, TimeUnit.MINUTES);
         
         return component;
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public ComponentDetailDTO getComponentDetail(Long id) {
+        String cacheKey = "component:detail:" + id;
+        
+        ComponentDetailDTO cachedDetail = cacheService.get(cacheKey, ComponentDetailDTO.class);
+        if (cachedDetail != null) {
+            return cachedDetail;
+        }
+        
+        // 获取零部件基本信息
+        Components component = componentsRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("零部件不存在"));
+        
+        ComponentDetailDTO detailDTO = new ComponentDetailDTO();
+        detailDTO.setId(component.getId());
+        detailDTO.setCategoryCode(component.getCategoryCode());
+        detailDTO.setComponentCode(component.getComponentCode());
+        detailDTO.setName(component.getName());
+        detailDTO.setComment(component.getComment());
+        detailDTO.setProcurementFlag(component.getProcurementFlag());
+        detailDTO.setCommonPartsFlag(component.getCommonPartsFlag());
+        detailDTO.setEntryTs(component.getEntryTs());
+        
+        // 获取规格信息
+        try {
+            List<ComponentsSpec> specs = component.getSpecs();
+            if (specs != null && !specs.isEmpty()) {
+                detailDTO.setSpecs(new ArrayList<>(specs));
+            }
+        } catch (Exception e) {
+            log.warn("获取零部件规格信息失败: {}", e.getMessage());
+        }
+        
+        // 获取工艺信息
+        try {
+            if (component.getProcesses() != null && !component.getProcesses().isEmpty()) {
+                detailDTO.setProcesses(new ArrayList<>(component.getProcesses()));
+            }
+        } catch (Exception e) {
+            log.warn("获取零部件工艺信息失败: {}", e.getMessage());
+        }
+        
+        // 获取子组件关系
+        try {
+            List<ComponentsRelationship> childRelationships = componentsRelationshipRepository.findByParentId(id);
+            if (childRelationships != null && !childRelationships.isEmpty()) {
+                List<ComponentDetailDTO.RelationshipDTO> children = new ArrayList<>();
+                for (ComponentsRelationship rel : childRelationships) {
+                    ComponentDetailDTO.RelationshipDTO relationshipDTO = new ComponentDetailDTO.RelationshipDTO();
+                    relationshipDTO.setId(rel.getId());
+                    relationshipDTO.setQuantity(rel.getQuantity());
+                    
+                    // 设置子组件信息
+                    if (rel.getChild() != null) {
+                        ComponentDetailDTO.RelationshipDTO.ComponentInfo childInfo = 
+                            new ComponentDetailDTO.RelationshipDTO.ComponentInfo();
+                        childInfo.setId(rel.getChild().getId());
+                        childInfo.setComponentCode(rel.getChild().getComponentCode());
+                        childInfo.setName(rel.getChild().getName());
+                        childInfo.setCategoryCode(rel.getChild().getCategoryCode());
+                        relationshipDTO.setChild(childInfo);
+                    }
+                    
+                    children.add(relationshipDTO);
+                }
+                detailDTO.setChildren(children);
+            }
+        } catch (Exception e) {
+            log.warn("获取子组件关系失败: {}", e.getMessage());
+        }
+        
+        // 获取父组件关系
+        try {
+            List<ComponentsRelationship> parentRelationships = componentsRelationshipRepository.findByChildId(id);
+            if (parentRelationships != null && !parentRelationships.isEmpty()) {
+                List<ComponentDetailDTO.RelationshipDTO> parents = new ArrayList<>();
+                for (ComponentsRelationship rel : parentRelationships) {
+                    ComponentDetailDTO.RelationshipDTO relationshipDTO = new ComponentDetailDTO.RelationshipDTO();
+                    relationshipDTO.setId(rel.getId());
+                    relationshipDTO.setQuantity(rel.getQuantity());
+                    
+                    // 设置父组件信息
+                    if (rel.getParent() != null) {
+                        ComponentDetailDTO.RelationshipDTO.ComponentInfo parentInfo = 
+                            new ComponentDetailDTO.RelationshipDTO.ComponentInfo();
+                        parentInfo.setId(rel.getParent().getId());
+                        parentInfo.setComponentCode(rel.getParent().getComponentCode());
+                        parentInfo.setName(rel.getParent().getName());
+                        parentInfo.setCategoryCode(rel.getParent().getCategoryCode());
+                        relationshipDTO.setParent(parentInfo);
+                    }
+                    
+                    parents.add(relationshipDTO);
+                }
+                detailDTO.setParents(parents);
+            }
+        } catch (Exception e) {
+            log.warn("获取父组件关系失败: {}", e.getMessage());
+        }
+        
+        // 缓存10分钟
+        cacheService.set(cacheKey, detailDTO, 10, TimeUnit.MINUTES);
+        
+        return detailDTO;
     }
     
     @Override
