@@ -67,7 +67,7 @@ public class BreakdownServiceImpl implements BreakdownService {
     @Transactional
     public Map<String, Object> breakdownContainer(Long containerId, boolean deleteOldRecords) {
         long startTime = System.currentTimeMillis();
-        log.info("开始对箱包进行工艺分解: containerId={}, deleteOldRecords={}", containerId, deleteOldRecords);
+        log.info("Starting container breakdown: containerId={}, deleteOldRecords={}", containerId, deleteOldRecords);
         
         Containers container = containersRepository.findById(containerId)
             .orElseThrow(() -> new RuntimeException("箱包不存在"));
@@ -77,17 +77,18 @@ public class BreakdownServiceImpl implements BreakdownService {
             long deleteTime = System.currentTimeMillis();
             breakdownRepository.deleteByContainerId(containerId);
             problemsRepository.deleteByContainerId(containerId);
-            log.debug("删除旧记录耗时: {}ms", System.currentTimeMillis() - deleteTime);
+            log.debug("Delete old records took: {}ms", System.currentTimeMillis() - deleteTime);
+            
+            // Update container status to not decomposed (only when deleting old records)
+            container.setStatus(0);
+            containersRepository.save(container);
+            log.debug("Container status updated to not decomposed: containerId={}", containerId);
         }
         
-        // 更新container状态为未分解
-        container.setStatus(0);
-        containersRepository.save(container);
-        
-        // 获取箱包部件
+        // Fetch container components
         long fetchTime = System.currentTimeMillis();
         List<ContainerComponents> containerComponents = containerComponentsRepository.findByContainerId(containerId);
-        log.debug("查询箱包部件耗时: {}ms, 部件数: {}", System.currentTimeMillis() - fetchTime, containerComponents.size());
+        log.debug("Fetch container components took: {}ms, component count: {}", System.currentTimeMillis() - fetchTime, containerComponents.size());
         
         List<Map<String, Object>> breakdownResults = new ArrayList<>();
         List<String> problemComponents = new ArrayList<>();
@@ -119,12 +120,12 @@ public class BreakdownServiceImpl implements BreakdownService {
                     problem.setLastUpdateUser("SYS_USER");
                     problemsRepository.save(problem);
                     
-                    log.warn("保存问题部件到问题件表: containerId={}, componentNo={}, componentName={}, quantity={}", 
+                    log.warn("Saved problem component to problem table: containerId={}, componentNo={}, componentName={}, quantity={}", 
                         containerId, containerComponent.getComponentNo(), containerComponent.getComponentName(), containerComponent.getQuantity());
                 }
             }
         }
-        log.debug("处理所有部件耗时: {}ms", System.currentTimeMillis() - processTime);
+        log.debug("Process all components took: {}ms", System.currentTimeMillis() - processTime);
         
         Map<String, Object> response = new HashMap<>();
         response.put("containerId", containerId);
@@ -136,12 +137,11 @@ public class BreakdownServiceImpl implements BreakdownService {
         response.put("processedComponents", breakdownResults.size());
         response.put("breakdownTime", new Date().toString());
         
-        // 更新container状态为已分解
-        container.setStatus(1);
-        containersRepository.save(container);
+        // Do not update status here to avoid concurrent update deadlock
+        // Status will be updated in batch after contract breakdown completes
         
         long totalTime = System.currentTimeMillis() - startTime;
-        log.info("箱包工艺分解完成: containerId={}, 处理部件数={}, 问题部件数={}, 耗时: {}ms, 速度: {}/秒", 
+        log.info("Container breakdown completed (status not updated): containerId={}, components={}, problems={}, took: {}ms, speed: {:.2f} components/sec", 
             containerId, breakdownResults.size(), problemComponents.size(), 
             totalTime, (breakdownResults.size() * 1000.0 / totalTime));
         
@@ -149,18 +149,31 @@ public class BreakdownServiceImpl implements BreakdownService {
     }
     
     @Override
-    @Transactional
     public Map<String, Object> breakdownContract(Long contractId) {
         long overallStartTime = System.currentTimeMillis();
-        log.info("开始对合同进行工艺分解: contractId={}", contractId);
+        log.info("=========== START CONTRACT BREAKDOWN ===========");
+        log.info("Contract ID: {}", contractId);
         
-        // 获取所有箱包（不在这里删除旧记录，避免持有长时间的表锁）
+        // Get all containers
         List<Containers> containers = containersRepository.findByContractId(contractId);
         int containerCount = containers.size();
+        log.info("Contract contains {} containers", containerCount);
         
-        // 确定线程池大小：取CPU核心数和箱包数的较小值
+        // Delete old records in main thread (independent transaction, avoid long connection holding)
+        log.info("========== STEP 1: Batch delete old breakdown records ==========");
+        long deleteStartTime = System.currentTimeMillis();
+        
+        // Use proxy to ensure REQUIRES_NEW transaction works
+        BreakdownServiceImpl self = applicationContext.getBean(BreakdownServiceImpl.class);
+        self.deleteContractBreakdownRecords(contractId, containers);
+        
+        long deleteDuration = System.currentTimeMillis() - deleteStartTime;
+        log.info("========== All old records deleted, took: {}ms ==========", deleteDuration);
+        
+        // Determine thread pool size: min of CPU cores and container count
         int poolSize = Math.min(containerCount, Runtime.getRuntime().availableProcessors());
-        log.info("合同包含 {} 个箱包，使用 {} 个线程并行处理", containerCount, poolSize);
+        log.info("========== STEP 2: Parallel breakdown of all containers ==========");
+        log.info("Using {} threads to process {} containers", poolSize, containerCount);
         
         // 创建线程池
         ExecutorService executor = Executors.newFixedThreadPool(poolSize, new ThreadFactory() {
@@ -177,6 +190,8 @@ public class BreakdownServiceImpl implements BreakdownService {
         List<Map<String, Object>> containerResults = Collections.synchronizedList(new ArrayList<>());
         List<String> allProblemComponents = Collections.synchronizedList(new ArrayList<>());
         AtomicInteger totalProcessedComponents = new AtomicInteger(0);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failCount = new AtomicInteger(0);
         
         try {
             long parallelStartTime = System.currentTimeMillis();
@@ -187,13 +202,33 @@ public class BreakdownServiceImpl implements BreakdownService {
             
             List<CompletableFuture<Map<String, Object>>> futures = containers.stream()
                 .map(container -> CompletableFuture.supplyAsync(() -> {
+                    long containerStartTime = System.currentTimeMillis();
+                    log.info("Thread {} starts container breakdown: containerId={}, containerNo={}", 
+                        Thread.currentThread().getName(), container.getId(), container.getContainerNo());
+                    
                     try {
-                        // 使用代理调用以确保在新事务中执行
-                        // 传入true，让每个箱包在独立事务中删除自己的旧记录（避免表级锁）
-                        return breakdownService.breakdownContainer(container.getId(), true);
+                        // Use proxy to ensure execution in new transaction
+                        // Pass false, do not delete old records (already deleted in main thread)
+                        Map<String, Object> result = breakdownService.breakdownContainer(container.getId(), false);
+                        
+                        long containerDuration = System.currentTimeMillis() - containerStartTime;
+                        Integer processedCount = (Integer) result.get("processedComponents");
+                        
+                        log.info("Thread {} completed container breakdown: containerId={}, containerNo={}, components={}, took={}ms", 
+                            Thread.currentThread().getName(), container.getId(), container.getContainerNo(), 
+                            processedCount, containerDuration);
+                        
+                        successCount.incrementAndGet();
+                        return result;
+                        
                     } catch (Exception e) {
-                        log.error("箱包分解失败: containerId={}, containerNo={}, error={}", 
-                            container.getId(), container.getContainerNo(), e.getMessage(), e);
+                        long containerDuration = System.currentTimeMillis() - containerStartTime;
+                        log.error("Thread {} container breakdown failed: containerId={}, containerNo={}, took={}ms, error={}", 
+                            Thread.currentThread().getName(), container.getId(), container.getContainerNo(), 
+                            containerDuration, e.getMessage(), e);
+                        
+                        failCount.incrementAndGet();
+                        
                         // 返回错误结果
                         Map<String, Object> errorResult = new HashMap<>();
                         errorResult.put("containerId", container.getId());
@@ -206,11 +241,19 @@ public class BreakdownServiceImpl implements BreakdownService {
                 }, executor))
                 .collect(Collectors.toList());
             
-            // 等待所有任务完成并收集结果
+            log.info("Submitted {} container breakdown tasks to thread pool, waiting for completion...", futures.size());
+            
+            // Wait for all tasks to complete and collect results
+            int completedCount = 0;
             for (CompletableFuture<Map<String, Object>> future : futures) {
                 try {
                     Map<String, Object> containerResult = future.get();
                     containerResults.add(containerResult);
+                    completedCount++;
+                    
+                    log.info("Received breakdown result {}/{}: containerId={}, containerNo={}", 
+                        completedCount, futures.size(), 
+                        containerResult.get("containerId"), containerResult.get("containerNo"));
                     
                     // 汇总问题部件
                     @SuppressWarnings("unchecked")
@@ -225,7 +268,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                         totalProcessedComponents.addAndGet(processed);
                     }
                 } catch (ExecutionException | InterruptedException e) {
-                    log.error("获取箱包分解结果失败: {}", e.getMessage(), e);
+                    log.error("Failed to get container breakdown result: {}", e.getMessage(), e);
                     if (e instanceof InterruptedException) {
                         Thread.currentThread().interrupt();
                     }
@@ -233,36 +276,57 @@ public class BreakdownServiceImpl implements BreakdownService {
             }
             
             long parallelDuration = System.currentTimeMillis() - parallelStartTime;
-            log.info("并行分解完成，耗时: {}ms, 平均每个箱包: {}ms", 
-                parallelDuration, parallelDuration / containerCount);
+            log.info("========== All container parallel breakdown completed ==========");
+            log.info("Total time: {}ms, Avg per container: {}ms", parallelDuration, parallelDuration / containerCount);
+            log.info("Success: {}, Failed: {}", successCount.get(), failCount.get());
+            
+            // Batch update all successfully decomposed containers status (avoid concurrent update deadlock)
+            if (successCount.get() > 0) {
+                log.info("========== Batch update container status to decomposed ==========");
+                long updateStatusStartTime = System.currentTimeMillis();
+                List<Long> containerIdList = containers.stream()
+                    .map(Containers::getId)
+                    .collect(Collectors.toList());
+                
+                // Use proxy to ensure REQUIRES_NEW transaction works
+                BreakdownServiceImpl selfProxy = applicationContext.getBean(BreakdownServiceImpl.class);
+                selfProxy.batchUpdateContainersStatus(containerIdList, 1);
+                
+                log.info("Batch update container status completed, took: {}ms", System.currentTimeMillis() - updateStatusStartTime);
+            }
             
         } finally {
-            // 关闭线程池
+            // Shutdown thread pool
+            log.info("Starting to shutdown thread pool...");
             executor.shutdown();
             try {
                 if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
-                    log.warn("线程池未能在60秒内完成，强制关闭");
+                    log.warn("Thread pool did not terminate within 60 seconds, forcing shutdown");
                     executor.shutdownNow();
                 }
+                log.info("Thread pool shut down");
             } catch (InterruptedException e) {
-                log.error("等待线程池关闭时被中断", e);
+                log.error("Interrupted while waiting for thread pool shutdown", e);
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
         }
         
-        // 生成汇总表（只读操作，线程安全）
+        // Generate summary table (read-only operation, thread-safe)
+        log.info("========== STEP 3: Generate breakdown summary table ==========");
         long summaryStartTime = System.currentTimeMillis();
         Map<String, Object> summary = generateBreakdownSummary(contractId);
-        log.info("生成汇总表耗时: {}ms", System.currentTimeMillis() - summaryStartTime);
+        log.info("Summary table generation took: {}ms", System.currentTimeMillis() - summaryStartTime);
         
-        // 更新合同状态为已完成
+        // Update contract status to completed (independent transaction)
+        log.info("========== STEP 4: Update contract status ==========");
         long updateStartTime = System.currentTimeMillis();
-        Contracts contract = contractsRepository.findById(contractId)
-            .orElseThrow(() -> new RuntimeException("合同不存在"));
-        contract.setStatus(Contracts.ContractStatus.COMPLETED);
-        contractsRepository.save(contract);
-        log.info("更新合同状态耗时: {}ms", System.currentTimeMillis() - updateStartTime);
+        
+        // Use proxy to ensure REQUIRES_NEW transaction works
+        BreakdownServiceImpl selfProxy = applicationContext.getBean(BreakdownServiceImpl.class);
+        selfProxy.updateContractStatusToCompleted(contractId);
+        
+        log.info("Contract status updated to COMPLETED, took: {}ms", System.currentTimeMillis() - updateStartTime);
         
         // 构建响应
         Map<String, Object> response = new HashMap<>();
@@ -275,11 +339,87 @@ public class BreakdownServiceImpl implements BreakdownService {
         response.put("breakdownTime", new Date().toString());
         
         long overallDuration = System.currentTimeMillis() - overallStartTime;
-        log.info("合同工艺分解完成: contractId={}, 箱包数={}, 处理部件数={}, 总耗时: {}ms, 平均速度: {}/秒, 合同状态已更新为已完成", 
-            contractId, containerCount, totalProcessedComponents.get(), 
+        log.info("=========== CONTRACT BREAKDOWN FULLY COMPLETED ===========");
+        log.info("Contract ID: {}, Total containers: {}, Success: {}, Failed: {}", 
+            contractId, containerCount, successCount.get(), failCount.get());
+        log.info("Total components: {}, Problem components: {}", 
+            totalProcessedComponents.get(), allProblemComponents.size());
+        log.info("Total time: {}ms, Avg speed: {:.2f} components/sec", 
             overallDuration, (totalProcessedComponents.get() * 1000.0 / overallDuration));
+        log.info("===========================================================");
         
         return response;
+    }
+    
+    /**
+     * Batch update container status (independent transaction)
+     * Update status uniformly after all containers decomposed, avoiding concurrent update deadlock
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void batchUpdateContainersStatus(List<Long> containerIds, Integer status) {
+        try {
+            log.info("Starting batch update of {} containers status to: {}", containerIds.size(), status);
+            List<Containers> containers = containersRepository.findAllById(containerIds);
+            for (Containers container : containers) {
+                container.setStatus(status);
+            }
+            containersRepository.saveAll(containers);
+            log.info("Batch update container status completed");
+        } catch (Exception e) {
+            log.error("Batch update container status failed: containerIds={}, status={}, error={}", 
+                containerIds, status, e.getMessage(), e);
+            throw new RuntimeException("Batch update container status failed: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Delete all breakdown records of containers under contract (independent transaction)
+     * This method uses independent transaction, releases database connection immediately after completion
+     * Note: Must be public method for Spring AOP to intercept and apply transaction
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void deleteContractBreakdownRecords(Long contractId, List<Containers> containers) {
+        try {
+            // Use contract ID to batch delete all breakdown records (more efficient)
+            log.info("Starting batch delete breakdown records: contractId={}", contractId);
+            breakdownRepository.deleteByContractId(contractId);
+            log.info("Batch delete breakdown records completed");
+            
+            // Batch delete all problem component records
+            log.info("Starting batch delete problem component records: contractId={}", contractId);
+            problemsRepository.deleteByContractId(contractId);
+            log.info("Batch delete problem component records completed");
+            
+            // Batch update all container status to not decomposed
+            log.info("Starting batch update container status to not decomposed");
+            for (Containers container : containers) {
+                container.setStatus(0);
+            }
+            containersRepository.saveAll(containers);
+            log.info("Batch update {} containers status completed", containers.size());
+            
+        } catch (Exception e) {
+            log.error("Batch delete contract old records failed: contractId={}, error={}", contractId, e.getMessage(), e);
+            throw new RuntimeException("Batch delete contract old records failed: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Update contract status to completed (independent transaction)
+     * Note: Must be public method for Spring AOP to intercept and apply transaction
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void updateContractStatusToCompleted(Long contractId) {
+        try {
+            Contracts contract = contractsRepository.findById(contractId)
+                .orElseThrow(() -> new RuntimeException("Contract not found"));
+            contract.setStatus(Contracts.ContractStatus.COMPLETED);
+            contractsRepository.save(contract);
+            log.info("Contract status updated to: COMPLETED");
+        } catch (Exception e) {
+            log.error("Update contract status failed: contractId={}, error={}", contractId, e.getMessage(), e);
+            throw new RuntimeException("Update contract status failed: " + e.getMessage(), e);
+        }
     }
     
     @Override

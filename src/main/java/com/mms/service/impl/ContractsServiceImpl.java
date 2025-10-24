@@ -257,7 +257,6 @@ public class ContractsServiceImpl implements ContractsService {
     
     
     @Override
-    @Transactional
     public Map<String, Object> startBreakdown(Long contractId) {
         String lockKey = "contract:breakdown:" + contractId;
         
