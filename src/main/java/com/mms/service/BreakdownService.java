@@ -64,11 +64,19 @@ public interface BreakdownService {
     Map<String, Object> mergeBreakdownTables(List<Integer> containerIds);
     
     /**
-     * 生成合并分解表PDF
+     * 生成合并分解表PDF（全部箱包）
      * @param contractId 合同ID
      * @return PDF文件字节数组
      */
     byte[] generateMergedBreakdownPdf(Long contractId);
+    
+    /**
+     * 生成合并分解表PDF（选中箱包）
+     * @param contractId 合同ID
+     * @param containerIds 箱包ID列表
+     * @return PDF文件字节数组
+     */
+    byte[] generateMergedBreakdownPdf(Long contractId, List<Long> containerIds);
     
     /**
      * 根据合同ID获取合同号

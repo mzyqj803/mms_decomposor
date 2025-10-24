@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -183,12 +184,12 @@ public class BreakdownController {
     }
     
     /**
-     * 下载合并分解表PDF
+     * 下载合并分解表PDF（全部箱包）- 用于合同详情页
      */
     @GetMapping("/merged/{contractId}/download")
     public ResponseEntity<byte[]> downloadMergedBreakdownPdf(@PathVariable Long contractId) {
         try {
-            log.info("下载合并分解表PDF: contractId={}", contractId);
+            log.info("下载合并分解表PDF(全部箱包): contractId={}", contractId);
             byte[] pdfBytes = breakdownService.generateMergedBreakdownPdf(contractId);
             
             // 获取合同信息以生成正确的文件名
@@ -205,20 +206,20 @@ public class BreakdownController {
                 .headers(headers)
                 .body(pdfBytes);
         } catch (Exception e) {
-            log.error("下载合并分解表PDF失败: contractId={}, error={}", contractId, e.getMessage(), e);
+            log.error("下载合并分解表PDF(全部箱包)失败: contractId={}, error={}", contractId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
     
     /**
-     * 下载合并分解表PDF（带文件名）
+     * 下载合并分解表PDF（全部箱包，带文件名）- 用于合同详情页
      */
     @GetMapping("/merged/{contractId}/download/{fileName}")
     public ResponseEntity<byte[]> downloadMergedBreakdownPdfWithFileName(
             @PathVariable Long contractId, 
             @PathVariable String fileName) {
         try {
-            log.info("下载合并分解表PDF: contractId={}, fileName={}", contractId, fileName);
+            log.info("下载合并分解表PDF(全部箱包): contractId={}, fileName={}", contractId, fileName);
             byte[] pdfBytes = breakdownService.generateMergedBreakdownPdf(contractId);
             
             // URL解码文件名
@@ -232,8 +233,51 @@ public class BreakdownController {
                 .headers(headers)
                 .body(pdfBytes);
         } catch (Exception e) {
-            log.error("下载合并分解表PDF失败: contractId={}, fileName={}, error={}", 
+            log.error("下载合并分解表PDF(全部箱包)失败: contractId={}, fileName={}, error={}", 
                 contractId, fileName, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * 下载选中箱包的合并分解表PDF - 用于工艺分解页
+     */
+    @GetMapping("/merged/selected/download")
+    public ResponseEntity<byte[]> downloadSelectedContainersBreakdownPdf(
+            @RequestParam Long contractId,
+            @RequestParam String containerIds,
+            @RequestParam(required = false) String fileName) {
+        try {
+            // 解析containerIds（逗号分隔）
+            List<Long> containerIdList = java.util.Arrays.stream(containerIds.split(","))
+                .map(String::trim)
+                .map(Long::parseLong)
+                .collect(java.util.stream.Collectors.toList());
+            
+            log.info("下载选中箱包合并分解表PDF: contractId={}, containerIds={}", contractId, containerIdList);
+            
+            byte[] pdfBytes = breakdownService.generateMergedBreakdownPdf(contractId, containerIdList);
+            
+            // 确定文件名
+            String actualFileName;
+            if (fileName != null && !fileName.isEmpty()) {
+                actualFileName = java.net.URLDecoder.decode(fileName, "UTF-8");
+            } else {
+                String contractNo = breakdownService.getContractNoById(contractId);
+                actualFileName = String.format("%s_合并分解表.pdf", contractNo);
+            }
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            String encodedFileName = java.net.URLEncoder.encode(actualFileName, "UTF-8");
+            headers.set("Content-Disposition", String.format("attachment; filename=\"%s\"; filename*=UTF-8''%s", actualFileName, encodedFileName));
+            
+            return ResponseEntity.ok()
+                .headers(headers)
+                .body(pdfBytes);
+        } catch (Exception e) {
+            log.error("下载选中箱包合并分解表PDF失败: contractId={}, containerIds={}, error={}", 
+                contractId, containerIds, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

@@ -11,6 +11,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.context.ApplicationContext;
 
 import java.util.*;
@@ -49,22 +54,34 @@ public class BreakdownServiceImpl implements BreakdownService {
     private final ObjectMapper objectMapper;
     private final ComponentsSpecRepository componentsSpecRepository;
     private final ApplicationContext applicationContext;
+    private final PlatformTransactionManager transactionManager;
     
     // 非标零部件创建锁，按componentCode分段加锁，避免重复创建
     private final ConcurrentHashMap<String, Object> nonStandardComponentLocks = new ConcurrentHashMap<>();
     
     @Override
-    @Transactional
     public Map<String, Object> breakdownContainer(Long containerId) {
         return breakdownContainer(containerId, true);
     }
     
     /**
      * 箱包工艺分解（内部方法）
+     * 
+     * 事务传播策略：REQUIRED
+     * - 如果当前存在事务，则加入该事务
+     * - 如果当前不存在事务，则创建新事务
+     * 
+     * 注意：由于CompletableFuture在新线程中运行，ThreadLocal的事务上下文不会传播
+     * 因此每个并发线程实际上都会创建独立的事务
+     * 
+     * 非标组件创建的并发控制：
+     * - 依赖数据库唯一约束（uk_component_code）作为最终保证
+     * - synchronized锁减少并发冲突
+     * 
      * @param containerId 箱包ID
      * @param deleteOldRecords 是否删除旧记录（从合同级别调用时为false，避免锁冲突）
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED)
     public Map<String, Object> breakdownContainer(Long containerId, boolean deleteOldRecords) {
         long startTime = System.currentTimeMillis();
         log.info("Starting container breakdown: containerId={}, deleteOldRecords={}", containerId, deleteOldRecords);
@@ -149,10 +166,12 @@ public class BreakdownServiceImpl implements BreakdownService {
     }
     
     @Override
+    @Transactional
     public Map<String, Object> breakdownContract(Long contractId) {
         long overallStartTime = System.currentTimeMillis();
         log.info("=========== START CONTRACT BREAKDOWN ===========");
         log.info("Contract ID: {}", contractId);
+        log.info("Note: Main thread operations are transactional, but CompletableFuture threads are not");
         
         // Get all containers
         List<Containers> containers = containersRepository.findByContractId(contractId);
@@ -664,18 +683,27 @@ public class BreakdownServiceImpl implements BreakdownService {
     /**
      * 获取或创建非标组件（线程安全）
      * 如果非标组件不存在，则基于基础组件创建
-     * 使用双重检查锁定模式，避免多线程重复创建
+     * 
+     * 事务控制：使用编程式事务（Programmatic Transaction）
+     * - 不依赖声明式@Transactional，避免AOP限制和事务传播问题
+     * - 在synchronized锁内显式开启新事务，确保能看到最新提交的数据
+     * - 精确控制事务边界，优化性能和可靠性
+     * 
+     * 并发控制策略（三层防护）：
+     * 1. synchronized锁：防止JVM内并发，减少数据库冲突
+     * 2. 双重检查 + 编程式事务：锁内开启新事务查询，能看到其他线程提交的数据
+     * 3. 数据库唯一约束（uk_component_code）：最终保证，捕获冲突后重试
+     * 
      * @param nonStandardCode 非标组件代码，如 TTA0E104002~AA79375
      * @return 非标组件
      */
-    @Transactional
-    private Optional<Components> getOrCreateNonStandardComponent(String nonStandardCode) {
+    public Optional<Components> getOrCreateNonStandardComponent(String nonStandardCode) {
         log.info("检测到非标组件代码: {}", nonStandardCode);
         
         // 第一次检查：快速路径，不加锁
         Optional<Components> existingComponent = componentsRepository.findByComponentCode(nonStandardCode);
         if (existingComponent.isPresent()) {
-            log.info("非标组件已存在（第一次检查）: {}", nonStandardCode);
+            log.info("Non-standard component already exists (first check): {}", nonStandardCode);
             return existingComponent;
         }
         
@@ -684,30 +712,38 @@ public class BreakdownServiceImpl implements BreakdownService {
         
         // 对特定的componentCode加锁
         synchronized (lock) {
-            log.debug("已获取非标组件创建锁: {}", nonStandardCode);
+            log.debug("Acquired lock for creating non-standard component: {}", nonStandardCode);
             
-            // 第二次检查：在锁内再次检查，避免重复创建
-            existingComponent = componentsRepository.findByComponentCode(nonStandardCode);
-            if (existingComponent.isPresent()) {
-                log.info("非标组件已存在（第二次检查，锁内）: {}", nonStandardCode);
-                return existingComponent;
-            }
-            
-            // 提取基础组件代码（~符号前的部分）
-            String baseComponentCode = nonStandardCode.substring(0, nonStandardCode.indexOf("~"));
-            log.info("提取基础组件代码: {}", baseComponentCode);
-            
-            // 查找基础组件
-            Optional<Components> baseComponentOpt = componentsRepository.findByComponentCode(baseComponentCode);
-            if (baseComponentOpt.isEmpty()) {
-                log.error("基础组件不存在，无法创建非标组件: baseComponentCode={}", baseComponentCode);
-                return Optional.empty();
-            }
-            
-            Components baseComponent = baseComponentOpt.get();
-            log.info("找到基础组件: {}, name={}", baseComponent.getComponentCode(), baseComponent.getName());
+            // 使用编程式事务：在锁内开启新事务，确保能看到其他线程已提交的数据
+            DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+            def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            def.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED); // 使用READ_COMMITTED，能看到已提交数据
+            TransactionStatus status = transactionManager.getTransaction(def);
             
             try {
+                // 第二次检查：在新事务中查询，能看到其他线程提交的数据
+                existingComponent = componentsRepository.findByComponentCode(nonStandardCode);
+                if (existingComponent.isPresent()) {
+                    log.info("Non-standard component already exists (second check in new transaction): {}", nonStandardCode);
+                    transactionManager.commit(status);
+                    return existingComponent;
+                }
+                
+                // 提取基础组件代码（~符号前的部分）
+                String baseComponentCode = nonStandardCode.substring(0, nonStandardCode.indexOf("~"));
+                log.info("Extracting base component code: {}", baseComponentCode);
+                
+                // 查找基础组件
+                Optional<Components> baseComponentOpt = componentsRepository.findByComponentCode(baseComponentCode);
+                if (baseComponentOpt.isEmpty()) {
+                    log.error("Base component not found, cannot create non-standard component: baseComponentCode={}", baseComponentCode);
+                    transactionManager.rollback(status);
+                    return Optional.empty();
+                }
+                
+                Components baseComponent = baseComponentOpt.get();
+                log.info("Found base component: code={}, name={}", baseComponent.getComponentCode(), baseComponent.getName());
+                
                 // 创建非标组件，复制基础组件的所有属性
                 Components nonStandardComponent = new Components();
                 nonStandardComponent.setComponentCode(nonStandardCode);
@@ -719,7 +755,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 
                 // 保存非标组件
                 Components savedComponent = componentsRepository.save(nonStandardComponent);
-                log.info("创建非标组件成功: id={}, componentCode={}", savedComponent.getId(), savedComponent.getComponentCode());
+                log.info("Non-standard component created successfully: id={}, code={}", savedComponent.getId(), savedComponent.getComponentCode());
                 
                 // 复制基础组件的规格（components_spec）
                 List<ComponentsSpec> baseSpecs = componentsSpecRepository.findByComponentId(baseComponent.getId());
@@ -731,7 +767,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                     newSpec.setComments(baseSpec.getComments());
                     componentsSpecRepository.save(newSpec);
                 }
-                log.info("复制基础组件规格完成: 共{}条", baseSpecs.size());
+                log.info("Copied {} specs from base component", baseSpecs.size());
                 
                 // 添加非标组件标记
                 ComponentsSpec nonStandardFlag = new ComponentsSpec();
@@ -740,7 +776,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 nonStandardFlag.setSpecValue("1");
                 nonStandardFlag.setComments("自动生成的非标组件标记");
                 componentsSpecRepository.save(nonStandardFlag);
-                log.info("添加非标组件标记成功");
+                log.info("Added non-standard component flag");
                 
                 // 复制基础组件的关系（components_relationship）
                 List<ComponentsRelationship> baseRelationships = componentsRelationshipRepository.findByParentId(baseComponent.getId());
@@ -751,28 +787,57 @@ public class BreakdownServiceImpl implements BreakdownService {
                     newRelation.setQuantity(baseRelation.getQuantity());
                     componentsRelationshipRepository.save(newRelation);
                 }
-                log.info("复制基础组件关系完成: 共{}条", baseRelationships.size());
+                log.info("Copied {} relationships from base component", baseRelationships.size());
                 
-                // 将新创建的非标组件存储到缓存中
+                // 将新创建的非标组件存储到缓存中（缓存失败不影响主流程）
                 try {
                     String componentJson = objectMapper.writeValueAsString(savedComponent);
                     componentCacheService.putComponentToCache(nonStandardCode, componentJson);
-                } catch (Exception e) {
-                    log.error("将非标组件存储到缓存失败: componentCode={}, error={}", 
-                        nonStandardCode, e.getMessage());
+                } catch (Exception cacheEx) {
+                    log.warn("Failed to cache non-standard component: {}, error: {}", 
+                        nonStandardCode, cacheEx.getMessage());
                 }
                 
-                log.info("非标组件创建完成: componentCode={}, baseComponentCode={}, specs={}, relationships={}", 
+                // 提交事务
+                transactionManager.commit(status);
+                log.info("Non-standard component creation completed successfully: code={}, baseCode={}, specs={}, relationships={}", 
                     nonStandardCode, baseComponentCode, baseSpecs.size() + 1, baseRelationships.size());
                 
                 return Optional.of(savedComponent);
                 
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                // 唯一约束冲突：说明其他线程在提交时也创建了该组件
+                // 这是正常的并发情况，回滚当前事务，重新查询即可
+                transactionManager.rollback(status);
+                log.info("Unique constraint conflict for component: {}, another thread created it. Re-querying...", 
+                    nonStandardCode);
+                
+                // 开启新事务查询其他线程创建的组件
+                DefaultTransactionDefinition queryDef = new DefaultTransactionDefinition();
+                queryDef.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                queryDef.setReadOnly(true);
+                TransactionStatus queryStatus = transactionManager.getTransaction(queryDef);
+                try {
+                    Optional<Components> existing = componentsRepository.findByComponentCode(nonStandardCode);
+                    transactionManager.commit(queryStatus);
+                    if (existing.isPresent()) {
+                        log.info("Successfully retrieved component created by another thread: {}", nonStandardCode);
+                        return existing;
+                    } else {
+                        log.error("Unique constraint conflict but cannot find the component: {}", nonStandardCode);
+                        return Optional.empty();
+                    }
+                } catch (Exception queryEx) {
+                    transactionManager.rollback(queryStatus);
+                    log.error("Failed to re-query component after unique constraint conflict: {}", nonStandardCode, queryEx);
+                    return Optional.empty();
+                }
             } catch (Exception e) {
-                log.error("创建非标组件失败: nonStandardCode={}, baseComponentCode={}, error={}", 
-                    nonStandardCode, baseComponentCode, e.getMessage(), e);
+                // 其他异常：回滚事务
+                transactionManager.rollback(status);
+                log.error("Failed to create non-standard component: code={}, error={}", 
+                    nonStandardCode, e.getMessage(), e);
                 return Optional.empty();
-            } finally {
-                log.debug("释放非标组件创建锁: {}", nonStandardCode);
             }
         } // synchronized 结束
     }
@@ -1117,8 +1182,8 @@ public class BreakdownServiceImpl implements BreakdownService {
         
         totalContainers = containers.size();
         
-        // 生成PDF下载链接（不保存到数据库）
-        String downloadUrl = generateMergedBreakdownPdfUrl(contractId, mergedComponents);
+        // 生成PDF下载链接（不保存到数据库），包含选中的箱包ID
+        String downloadUrl = generateMergedBreakdownPdfUrl(contractId, longContainerIds, mergedComponents);
         
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
@@ -1130,16 +1195,16 @@ public class BreakdownServiceImpl implements BreakdownService {
         result.put("mergedComponents", mergedComponents.values()); // 返回合并后的数据
         result.put("mergedProblems", mergedProblems); // 返回问题部件数据
         
-        log.info("合并分解表完成: contractId={}, totalContainers={}, totalComponents={}, totalProblems={}", 
-            contractId, totalContainers, mergedComponents.size(), mergedProblems.size());
+        log.info("合并分解表完成: contractId={}, containerIds={}, totalContainers={}, totalComponents={}, totalProblems={}", 
+            contractId, longContainerIds, totalContainers, mergedComponents.size(), mergedProblems.size());
         
         return result;
     }
     
     /**
-     * 生成合并分解表PDF下载链接
+     * 生成合并分解表PDF下载链接（选中箱包）
      */
-    private String generateMergedBreakdownPdfUrl(Long contractId, Map<String, Map<String, Object>> mergedComponents) {
+    private String generateMergedBreakdownPdfUrl(Long contractId, List<Long> containerIds, Map<String, Map<String, Object>> mergedComponents) {
         try {
             // 获取合同号以生成包含文件名的URL
             String contractNo = getContractNoById(contractId);
@@ -1147,26 +1212,70 @@ public class BreakdownServiceImpl implements BreakdownService {
             // URL编码文件名以处理特殊字符
             String encodedFileName = java.net.URLEncoder.encode(fileName, "UTF-8");
             
-            // 返回相对路径，让前端处理端口转换
-            return "/api/breakdown/merged/" + contractId + "/download/" + encodedFileName;
+            // 将containerIds编码为查询参数
+            String containerIdsParam = containerIds.stream()
+                .map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(","));
+            
+            // 使用新的API端点，专门处理选中箱包的下载
+            return "/api/breakdown/merged/selected/download?contractId=" + contractId + 
+                   "&containerIds=" + containerIdsParam + "&fileName=" + encodedFileName;
         } catch (Exception e) {
             log.error("生成PDF下载链接失败: contractId={}, error={}", contractId, e.getMessage(), e);
-            // 降级处理：返回不带文件名的URL
-            return "/api/breakdown/merged/" + contractId + "/download";
+            // 降级处理：返回不带文件名的URL，但仍包含containerIds
+            String containerIdsParam = containerIds.stream()
+                .map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(","));
+            return "/api/breakdown/merged/selected/download?contractId=" + contractId + "&containerIds=" + containerIdsParam;
         }
     }
     
+    /**
+     * 生成合并分解表PDF（全部箱包）- 用于合同详情页
+     */
     @Override
     public byte[] generateMergedBreakdownPdf(Long contractId) {
-        log.info("生成合并分解表PDF: contractId={}", contractId);
+        log.info("生成合并分解表PDF(全部箱包): contractId={}", contractId);
+        // 调用带containerIds参数的版本，传null表示全部箱包
+        return generateMergedBreakdownPdf(contractId, null);
+    }
+    
+    /**
+     * 生成合并分解表PDF（选中箱包）- 用于工艺分解页
+     */
+    @Override
+    public byte[] generateMergedBreakdownPdf(Long contractId, List<Long> containerIds) {
+        log.info("生成合并分解表PDF(选中箱包): contractId={}, containerIds={}", contractId, containerIds);
         
         try {
             // 直接从分解表读取数据，不依赖合并表
             List<ContainerComponentsBreakdown> allBreakdowns = breakdownRepository.findByContractId(contractId);
             List<ContainerComponentsBreakdownProblems> allProblems = problemsRepository.findByContractId(contractId);
             
+            log.info("Query result: contractId={}, total breakdowns={}, total problems={}", 
+                contractId, allBreakdowns.size(), allProblems.size());
+            
+            // 如果指定了containerIds，则只保留这些箱包的数据
+            if (containerIds != null && !containerIds.isEmpty()) {
+                log.info("Filtering by containerIds: {}", containerIds);
+                
+                allBreakdowns = allBreakdowns.stream()
+                    .filter(breakdown -> containerIds.contains(breakdown.getContainer().getId()))
+                    .collect(java.util.stream.Collectors.toList());
+                    
+                allProblems = allProblems.stream()
+                    .filter(problem -> containerIds.contains(problem.getContainer().getId()))
+                    .collect(java.util.stream.Collectors.toList());
+                
+                log.info("After filtering: breakdowns={}, problems={}", allBreakdowns.size(), allProblems.size());
+            }
+            
             if (allBreakdowns.isEmpty() && allProblems.isEmpty()) {
-                throw new RuntimeException("没有找到分解数据");
+                String errorMsg = containerIds != null && !containerIds.isEmpty() 
+                    ? String.format("The selected containers (IDs: %s) have not been broken down yet, or do not belong to contract %d. Please perform breakdown first.", containerIds, contractId)
+                    : String.format("No breakdown data found for contract %d. Please perform breakdown first.", contractId);
+                log.error(errorMsg);
+                throw new RuntimeException(errorMsg);
             }
             
             // 获取合同信息
