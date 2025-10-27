@@ -22,6 +22,7 @@ public class ComponentDetailDTO {
     private String comment;
     private Boolean procurementFlag;
     private Integer commonPartsFlag;
+    private Integer status;
     private LocalDateTime entryTs;
     
     // 规格信息

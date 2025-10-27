@@ -27,9 +27,10 @@ public interface ComponentsRepository extends JpaRepository<Components, Long> {
     List<Components> findByCommonPartsFlag(Integer commonPartsFlag);
     
     /**
-     * 分页查询零部件（支持多条件搜索）
+     * 分页查询零部件（支持多条件搜索）- 只返回 active 的组件
      */
     @Query("SELECT c FROM Components c WHERE " +
+           "c.status = 1 AND " +
            "(:componentCode IS NULL OR c.componentCode LIKE %:componentCode%) AND " +
            "(:name IS NULL OR c.name LIKE %:name%) AND " +
            "(:categoryCode IS NULL OR c.categoryCode = :categoryCode)")
@@ -39,17 +40,24 @@ public interface ComponentsRepository extends JpaRepository<Components, Long> {
                                       Pageable pageable);
     
     /**
-     * 分页搜索零部件（关键词搜索）
+     * 分页搜索零部件（关键词搜索）- 只返回 active 的组件
      */
     @Query("SELECT c FROM Components c WHERE " +
-           "c.componentCode LIKE %:keyword% OR " +
+           "c.status = 1 AND " +
+           "(c.componentCode LIKE %:keyword% OR " +
            "c.name LIKE %:keyword% OR " +
-           "c.categoryCode LIKE %:keyword%")
+           "c.categoryCode LIKE %:keyword%)")
     Page<Components> findByKeywordContaining(@Param("keyword") String keyword, Pageable pageable);
     
     /**
-     * 获取所有分类代码（去重）
+     * 获取所有分类代码（去重）- 只返回 active 的组件
      */
-    @Query("SELECT DISTINCT c.categoryCode FROM Components c WHERE c.categoryCode IS NOT NULL ORDER BY c.categoryCode")
+    @Query("SELECT DISTINCT c.categoryCode FROM Components c WHERE c.status = 1 AND c.categoryCode IS NOT NULL ORDER BY c.categoryCode")
     List<String> findDistinctCategoryCodes();
+    
+    /**
+     * 根据组件编号查找活动的组件
+     */
+    @Query("SELECT c FROM Components c WHERE c.componentCode = :componentCode AND c.status = 1")
+    Optional<Components> findActiveByComponentCode(@Param("componentCode") String componentCode);
 }

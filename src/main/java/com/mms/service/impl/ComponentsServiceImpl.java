@@ -89,6 +89,7 @@ public class ComponentsServiceImpl implements ComponentsService {
         detailDTO.setComment(component.getComment());
         detailDTO.setProcurementFlag(component.getProcurementFlag());
         detailDTO.setCommonPartsFlag(component.getCommonPartsFlag());
+        detailDTO.setStatus(component.getStatus());
         detailDTO.setEntryTs(component.getEntryTs());
         
         // 获取规格信息
@@ -177,9 +178,14 @@ public class ComponentsServiceImpl implements ComponentsService {
     @Override
     @Transactional
     public Components createComponent(Components component) {
-        // 检查零部件代号是否已存在
-        if (componentsRepository.findByComponentCode(component.getComponentCode()).isPresent()) {
+        // 检查零部件代号是否已存在（只检查 active 的组件，允许重用已删除组件的代号）
+        if (componentsRepository.findActiveByComponentCode(component.getComponentCode()).isPresent()) {
             throw new RuntimeException("零部件代号已存在");
+        }
+        
+        // 设置新组件为 active 状态
+        if (component.getStatus() == null) {
+            component.setStatus(1);
         }
         
         // 保存零部件基本信息
@@ -195,9 +201,9 @@ public class ComponentsServiceImpl implements ComponentsService {
         
         // 处理父工件关系
         if (component.getParentComponentId() != null && !component.getParentComponentId().trim().isEmpty()) {
-            // 查找父工件
-            Components parentComponent = componentsRepository.findByComponentCode(component.getParentComponentId())
-                .orElseThrow(() -> new RuntimeException("父工件不存在: " + component.getParentComponentId()));
+            // 查找父工件（只查找 active 的组件）
+            Components parentComponent = componentsRepository.findActiveByComponentCode(component.getParentComponentId())
+                .orElseThrow(() -> new RuntimeException("父工件不存在或已被删除: " + component.getParentComponentId()));
             
             // 创建父子关系
             ComponentsRelationship relationship = new ComponentsRelationship();
@@ -226,9 +232,9 @@ public class ComponentsServiceImpl implements ComponentsService {
     public Components updateComponent(Long id, Components component) {
         Components existingComponent = getComponentById(id);
         
-        // 检查零部件代号是否被其他记录使用
+        // 检查零部件代号是否被其他记录使用（只检查 active 的组件）
         if (!existingComponent.getComponentCode().equals(component.getComponentCode())) {
-            if (componentsRepository.findByComponentCode(component.getComponentCode()).isPresent()) {
+            if (componentsRepository.findActiveByComponentCode(component.getComponentCode()).isPresent()) {
                 throw new RuntimeException("零部件代号已存在");
             }
         }
@@ -266,33 +272,18 @@ public class ComponentsServiceImpl implements ComponentsService {
     @Override
     @Transactional
     public void deleteComponent(Long id) {
-        Components component = getComponentById(id);
+        Components component = componentsRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("零部件不存在"));
         
-        // 检查是否有关联的工艺或关系数据
-        if (component.getProcesses() != null && !component.getProcesses().isEmpty()) {
-            throw new RuntimeException("该零部件存在工艺数据，不能删除");
-        }
-        if (component.getChildren() != null && !component.getChildren().isEmpty()) {
-            throw new RuntimeException("该零部件存在子组件关系，不能删除");
-        }
-        
-        // 删除规格数据
-        componentsSpecRepository.deleteByComponentId(id);
-        
-        // 删除父子关系（作为子组件的记录）
-        componentsRelationshipRepository.deleteByChildId(id);
-        
-        if (component.getParents() != null && !component.getParents().isEmpty()) {
-            throw new RuntimeException("该零部件存在父组件关系，不能删除");
-        }
-        
-        componentsRepository.deleteById(id);
+        // 软删除：将 status 设置为 0 (deleted)
+        component.setStatus(0);
+        componentsRepository.save(component);
         
         // 清除相关缓存
         clearComponentCache(id);
         clearComponentsCache();
         
-        log.info("删除零部件成功: {}", component.getComponentCode());
+        log.info("软删除零部件成功: {}, status设置为0", component.getComponentCode());
     }
     
     @Override
@@ -342,9 +333,9 @@ public class ComponentsServiceImpl implements ComponentsService {
             return cachedSpecs;
         }
         
-        // 根据组件编号查找组件
-        Components component = componentsRepository.findByComponentCode(componentCode)
-            .orElseThrow(() -> new RuntimeException("零部件不存在: " + componentCode));
+        // 根据组件编号查找组件（只查找 active 的组件）
+        Components component = componentsRepository.findActiveByComponentCode(componentCode)
+            .orElseThrow(() -> new RuntimeException("零部件不存在或已被删除: " + componentCode));
         
         // 获取组件的规格信息
         List<ComponentsSpec> specs = component.getSpecs();

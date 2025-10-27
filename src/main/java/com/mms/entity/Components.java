@@ -32,6 +32,9 @@ public class Components extends BaseEntity {
     @Column(name = "common_parts_flag")
     private Integer commonPartsFlag = 0;
     
+    @Column(name = "status")
+    private Integer status = 1; // 1 = active, 0 = deleted
+    
     // 临时字段：用于接收父工件ID（不持久化到数据库）
     @Transient
     private String parentComponentId;

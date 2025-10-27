@@ -13,10 +13,12 @@ CREATE TABLE IF NOT EXISTS components (
   Comment           TEXT,
   procurement_flag  TINYINT(1) DEFAULT 0,
   common_parts_flag TINYINT(1) DEFAULT 0,
+  status            TINYINT(1) DEFAULT 1 COMMENT '状态: 1=active, 0=deleted',
   Entry_TS          TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
   Entry_User        VARCHAR(50) DEFAULT 'SYS_USER',
   Last_Update_TS    TIMESTAMP DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP(),
-  Last_Update_User  VARCHAR(50) DEFAULT 'SYS_USER'
+  Last_Update_User  VARCHAR(50) DEFAULT 'SYS_USER',
+  INDEX idx_components_status (status)
 ) ENGINE=InnoDB;
 
 -- 2) Contracts

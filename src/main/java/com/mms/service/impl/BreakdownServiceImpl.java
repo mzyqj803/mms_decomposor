@@ -17,6 +17,8 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.context.ApplicationContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -55,6 +57,9 @@ public class BreakdownServiceImpl implements BreakdownService {
     private final ComponentsSpecRepository componentsSpecRepository;
     private final ApplicationContext applicationContext;
     private final PlatformTransactionManager transactionManager;
+    
+    @PersistenceContext
+    private EntityManager entityManager;
     
     // 非标零部件创建锁，按componentCode分段加锁，避免重复创建
     private final ConcurrentHashMap<String, Object> nonStandardComponentLocks = new ConcurrentHashMap<>();
@@ -126,8 +131,12 @@ public class BreakdownServiceImpl implements BreakdownService {
                 Optional<Components> componentOpt = getComponentByCode(containerComponent.getComponentNo());
                 if (componentOpt.isEmpty()) {
                     // 保存问题部件到问题件表
+                    // 重新获取container以避免乐观锁冲突
+                    Containers freshContainer = containersRepository.findById(containerId)
+                        .orElseThrow(() -> new RuntimeException("箱包不存在"));
+                    
                     ContainerComponentsBreakdownProblems problem = new ContainerComponentsBreakdownProblems();
-                    problem.setContainer(container);
+                    problem.setContainer(freshContainer);
                     problem.setComponentNo(containerComponent.getComponentNo());
                     problem.setName(containerComponent.getComponentName()); // 添加零部件名称
                     problem.setQuantity(containerComponent.getQuantity());
@@ -312,6 +321,12 @@ public class BreakdownServiceImpl implements BreakdownService {
                 selfProxy.batchUpdateContainersStatus(containerIdList, 1);
                 
                 log.info("Batch update container status completed, took: {}ms", System.currentTimeMillis() - updateStatusStartTime);
+                
+                // Clear EntityManager to avoid optimistic lock conflicts
+                // After batch update, the container objects in memory have stale last_update_ts
+                // When querying again, Hibernate will auto-flush and cause optimistic lock errors
+                entityManager.clear();
+                log.debug("EntityManager cleared after batch update to avoid optimistic lock conflicts");
             }
             
         } finally {
@@ -662,8 +677,8 @@ public class BreakdownServiceImpl implements BreakdownService {
             }
         }
         
-        // 缓存中没有或解析失败，从数据库获取
-        Optional<Components> componentOpt = componentsRepository.findByComponentCode(componentCode);
+        // 缓存中没有或解析失败，从数据库获取（只获取 active 的组件）
+        Optional<Components> componentOpt = componentsRepository.findActiveByComponentCode(componentCode);
         if (componentOpt.isPresent()) {
             log.debug("从数据库获取零部件: {}", componentCode);
             
@@ -675,6 +690,8 @@ public class BreakdownServiceImpl implements BreakdownService {
                 log.error("将零部件存储到缓存失败: componentCode={}, error={}", 
                     componentCode, e.getMessage());
             }
+        } else {
+            log.debug("未找到零部件或零部件已被删除(status=0): {}", componentCode);
         }
         
         return componentOpt;
@@ -700,8 +717,8 @@ public class BreakdownServiceImpl implements BreakdownService {
     public Optional<Components> getOrCreateNonStandardComponent(String nonStandardCode) {
         log.info("检测到非标组件代码: {}", nonStandardCode);
         
-        // 第一次检查：快速路径，不加锁
-        Optional<Components> existingComponent = componentsRepository.findByComponentCode(nonStandardCode);
+        // 第一次检查：快速路径，不加锁（只查找 active 的组件）
+        Optional<Components> existingComponent = componentsRepository.findActiveByComponentCode(nonStandardCode);
         if (existingComponent.isPresent()) {
             log.info("Non-standard component already exists (first check): {}", nonStandardCode);
             return existingComponent;
@@ -721,8 +738,8 @@ public class BreakdownServiceImpl implements BreakdownService {
             TransactionStatus status = transactionManager.getTransaction(def);
             
             try {
-                // 第二次检查：在新事务中查询，能看到其他线程提交的数据
-                existingComponent = componentsRepository.findByComponentCode(nonStandardCode);
+                // 第二次检查：在新事务中查询，能看到其他线程提交的数据（只查找 active 的组件）
+                existingComponent = componentsRepository.findActiveByComponentCode(nonStandardCode);
                 if (existingComponent.isPresent()) {
                     log.info("Non-standard component already exists (second check in new transaction): {}", nonStandardCode);
                     transactionManager.commit(status);
@@ -733,10 +750,10 @@ public class BreakdownServiceImpl implements BreakdownService {
                 String baseComponentCode = nonStandardCode.substring(0, nonStandardCode.indexOf("~"));
                 log.info("Extracting base component code: {}", baseComponentCode);
                 
-                // 查找基础组件
-                Optional<Components> baseComponentOpt = componentsRepository.findByComponentCode(baseComponentCode);
+                // 查找基础组件（只查找 active 的组件）
+                Optional<Components> baseComponentOpt = componentsRepository.findActiveByComponentCode(baseComponentCode);
                 if (baseComponentOpt.isEmpty()) {
-                    log.error("Base component not found, cannot create non-standard component: baseComponentCode={}", baseComponentCode);
+                    log.error("Base component not found or deleted (status=0), cannot create non-standard component: baseComponentCode={}", baseComponentCode);
                     transactionManager.rollback(status);
                     return Optional.empty();
                 }
@@ -752,6 +769,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 nonStandardComponent.setComment(baseComponent.getComment());
                 nonStandardComponent.setProcurementFlag(baseComponent.getProcurementFlag());
                 nonStandardComponent.setCommonPartsFlag(baseComponent.getCommonPartsFlag());
+                nonStandardComponent.setStatus(1); // 设置为 active 状态
                 
                 // 保存非标组件
                 Components savedComponent = componentsRepository.save(nonStandardComponent);
@@ -818,7 +836,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                 queryDef.setReadOnly(true);
                 TransactionStatus queryStatus = transactionManager.getTransaction(queryDef);
                 try {
-                    Optional<Components> existing = componentsRepository.findByComponentCode(nonStandardCode);
+                    Optional<Components> existing = componentsRepository.findActiveByComponentCode(nonStandardCode);
                     transactionManager.commit(queryStatus);
                     if (existing.isPresent()) {
                         log.info("Successfully retrieved component created by another thread: {}", nonStandardCode);

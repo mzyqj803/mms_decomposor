@@ -12,15 +12,15 @@ import java.util.List;
 public interface ComponentsRelationshipRepository extends JpaRepository<ComponentsRelationship, Long> {
     
     /**
-     * 根据父组件ID查找所有子组件关系
+     * 根据父组件ID查找所有子组件关系（只返回 active 的组件）
      */
-    @Query("SELECT cr FROM ComponentsRelationship cr JOIN FETCH cr.child WHERE cr.parent.id = :parentId")
+    @Query("SELECT cr FROM ComponentsRelationship cr JOIN FETCH cr.child c WHERE cr.parent.id = :parentId AND cr.parent.status = 1 AND c.status = 1")
     List<ComponentsRelationship> findByParentId(@Param("parentId") Long parentId);
     
     /**
-     * 根据子组件ID查找所有父组件关系
+     * 根据子组件ID查找所有父组件关系（只返回 active 的组件）
      */
-    @Query("SELECT cr FROM ComponentsRelationship cr WHERE cr.child.id = :childId")
+    @Query("SELECT cr FROM ComponentsRelationship cr WHERE cr.child.id = :childId AND cr.parent.status = 1 AND cr.child.status = 1")
     List<ComponentsRelationship> findByChildId(@Param("childId") Long childId);
     
     /**
