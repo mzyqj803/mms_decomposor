@@ -27,6 +27,9 @@ docker-compose down -v >nul 2>&1
     $content = $content -replace 'UPGRADE_NOTE_PLACEHOLDER', ''
 }
 
-# 使用 UTF8 编码写入文件（带BOM）
-[System.IO.File]::WriteAllText($FilePath, $content, [System.Text.Encoding]::UTF8)
+# 使用不带BOM的UTF8编码写入文件
+# 这样可以确保 @echo off 能够正确生效（BOM会导致批处理无法识别第一行）
+# 同时配合脚本中的 chcp 65001 可以正确显示中文
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($FilePath, $content, $utf8NoBom)
 

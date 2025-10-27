@@ -12,18 +12,18 @@ import jakarta.persistence.*;
 @EqualsAndHashCode(callSuper = true)
 public class ContainerComponentsBreakdown extends BaseEntity {
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "container_component_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = {})
+    @JoinColumn(name = "container_component_id", nullable = false, updatable = false)
     @JsonIgnore
     private ContainerComponents containerComponent;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sub_component_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = {})
+    @JoinColumn(name = "sub_component_id", nullable = false, updatable = false)
     @JsonIgnore
     private Components subComponent;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "container_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = {})
+    @JoinColumn(name = "container_id", nullable = false, updatable = false)
     @JsonIgnore
     private Containers container;
     

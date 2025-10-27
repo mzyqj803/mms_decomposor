@@ -27,10 +27,12 @@
               <el-icon><Setting /></el-icon>
               编辑合同参数
             </el-button>
+            <!-- 克隆合同功能暂未实现，已隐藏
             <el-button @click="showCloneDialog" size="small">
               <el-icon><CopyDocument /></el-icon>
               克隆合同
             </el-button>
+            -->
             <el-button 
               @click="handleDeleteContract" 
               :disabled="deleting || contract?.status === 1" 
@@ -70,6 +72,7 @@
           </el-button-group>
         </div>
         
+        <!-- 生产执行功能暂未实现，已隐藏
         <div class="menu-group">
           <span class="group-label">生产执行</span>
           <el-button-group>
@@ -91,6 +94,7 @@
             </el-button>
           </el-button-group>
         </div>
+        -->
       </div>
       
       <!-- 合同基本信息 -->

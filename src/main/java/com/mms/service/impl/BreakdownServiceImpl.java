@@ -72,12 +72,9 @@ public class BreakdownServiceImpl implements BreakdownService {
     /**
      * 箱包工艺分解（内部方法）
      * 
-     * 事务传播策略：REQUIRED
-     * - 如果当前存在事务，则加入该事务
-     * - 如果当前不存在事务，则创建新事务
-     * 
-     * 注意：由于CompletableFuture在新线程中运行，ThreadLocal的事务上下文不会传播
-     * 因此每个并发线程实际上都会创建独立的事务
+     * 事务隔离级别：READ_COMMITTED
+     * - 减少并发事务间的锁冲突，避免乐观锁错误
+     * - 每个线程在独立事务中运行（CompletableFuture不传播事务上下文）
      * 
      * 非标组件创建的并发控制：
      * - 依赖数据库唯一约束（uk_component_code）作为最终保证
@@ -86,7 +83,7 @@ public class BreakdownServiceImpl implements BreakdownService {
      * @param containerId 箱包ID
      * @param deleteOldRecords 是否删除旧记录（从合同级别调用时为false，避免锁冲突）
      */
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public Map<String, Object> breakdownContainer(Long containerId, boolean deleteOldRecords) {
         long startTime = System.currentTimeMillis();
         log.info("Starting container breakdown: containerId={}, deleteOldRecords={}", containerId, deleteOldRecords);
@@ -140,9 +137,7 @@ public class BreakdownServiceImpl implements BreakdownService {
                     problem.setComponentNo(containerComponent.getComponentNo());
                     problem.setName(containerComponent.getComponentName()); // 添加零部件名称
                     problem.setQuantity(containerComponent.getQuantity());
-                    problem.setEntryTs(java.time.LocalDateTime.now());
                     problem.setEntryUser("SYS_USER");
-                    problem.setLastUpdateTs(java.time.LocalDateTime.now());
                     problem.setLastUpdateUser("SYS_USER");
                     problemsRepository.save(problem);
                     
@@ -717,11 +712,18 @@ public class BreakdownServiceImpl implements BreakdownService {
     public Optional<Components> getOrCreateNonStandardComponent(String nonStandardCode) {
         log.info("检测到非标组件代码: {}", nonStandardCode);
         
-        // 第一次检查：快速路径，不加锁（只查找 active 的组件）
+        // 第一次检查：快速路径，不加锁（先查找 active 的组件）
         Optional<Components> existingComponent = componentsRepository.findActiveByComponentCode(nonStandardCode);
         if (existingComponent.isPresent()) {
-            log.info("Non-standard component already exists (first check): {}", nonStandardCode);
+            log.info("Non-standard component already exists and is active (first check): {}", nonStandardCode);
             return existingComponent;
+        }
+        
+        // 检查是否存在已删除的非标组件（status=0）
+        Optional<Components> deletedComponent = componentsRepository.findByComponentCode(nonStandardCode);
+        if (deletedComponent.isPresent() && deletedComponent.get().getStatus() == 0) {
+            log.info("Found deleted non-standard component, will restore it: {}", nonStandardCode);
+            // 继续执行下面的逻辑来恢复它
         }
         
         // 获取或创建该componentCode的锁对象
@@ -738,12 +740,52 @@ public class BreakdownServiceImpl implements BreakdownService {
             TransactionStatus status = transactionManager.getTransaction(def);
             
             try {
-                // 第二次检查：在新事务中查询，能看到其他线程提交的数据（只查找 active 的组件）
+                // 第二次检查：在新事务中查询，能看到其他线程提交的数据（先查找 active 的组件）
                 existingComponent = componentsRepository.findActiveByComponentCode(nonStandardCode);
                 if (existingComponent.isPresent()) {
-                    log.info("Non-standard component already exists (second check in new transaction): {}", nonStandardCode);
+                    log.info("Non-standard component already exists and is active (second check in new transaction): {}", nonStandardCode);
                     transactionManager.commit(status);
                     return existingComponent;
+                }
+                
+                // 检查是否存在已删除的非标组件（status=0），如果存在则恢复它
+                Optional<Components> checkDeletedOpt = componentsRepository.findByComponentCode(nonStandardCode);
+                if (checkDeletedOpt.isPresent()) {
+                    Components checkDeleted = checkDeletedOpt.get();
+                    if (checkDeleted.getStatus() == 0) {
+                        log.info("Found deleted non-standard component, restoring it: {}", nonStandardCode);
+                        
+                        // 提取基础组件代码以获取最新的name
+                        String baseComponentCode = nonStandardCode.substring(0, nonStandardCode.indexOf("~"));
+                        Optional<Components> baseComponentOpt = componentsRepository.findActiveByComponentCode(baseComponentCode);
+                        
+                        if (baseComponentOpt.isPresent()) {
+                            Components baseComponent = baseComponentOpt.get();
+                            
+                            // 恢复组件：设置status=1，更新name
+                            checkDeleted.setStatus(1);
+                            checkDeleted.setName(baseComponent.getName());
+                            Components restoredComponent = componentsRepository.save(checkDeleted);
+                            
+                            // 更新缓存
+                            try {
+                                String componentJson = objectMapper.writeValueAsString(restoredComponent);
+                                componentCacheService.putComponentToCache(nonStandardCode, componentJson);
+                            } catch (Exception cacheEx) {
+                                log.warn("Failed to cache restored component: {}, error: {}", 
+                                    nonStandardCode, cacheEx.getMessage());
+                            }
+                            
+                            transactionManager.commit(status);
+                            log.info("Non-standard component restored successfully: code={}, new name={}", 
+                                nonStandardCode, baseComponent.getName());
+                            return Optional.of(restoredComponent);
+                        } else {
+                            log.error("Base component not found or deleted (status=0), cannot restore non-standard component: baseComponentCode={}", baseComponentCode);
+                            transactionManager.rollback(status);
+                            return Optional.empty();
+                        }
+                    }
                 }
                 
                 // 提取基础组件代码（~符号前的部分）
@@ -833,18 +875,38 @@ public class BreakdownServiceImpl implements BreakdownService {
                 // 开启新事务查询其他线程创建的组件
                 DefaultTransactionDefinition queryDef = new DefaultTransactionDefinition();
                 queryDef.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                queryDef.setReadOnly(true);
+                queryDef.setReadOnly(false); // 改为false，因为可能需要恢复组件
                 TransactionStatus queryStatus = transactionManager.getTransaction(queryDef);
                 try {
+                    // 先查找active的组件
                     Optional<Components> existing = componentsRepository.findActiveByComponentCode(nonStandardCode);
-                    transactionManager.commit(queryStatus);
                     if (existing.isPresent()) {
-                        log.info("Successfully retrieved component created by another thread: {}", nonStandardCode);
+                        transactionManager.commit(queryStatus);
+                        log.info("Successfully retrieved active component created by another thread: {}", nonStandardCode);
                         return existing;
-                    } else {
-                        log.error("Unique constraint conflict but cannot find the component: {}", nonStandardCode);
-                        return Optional.empty();
                     }
+                    
+                    // 查找所有状态的组件，可能是已删除的
+                    Optional<Components> anyStatus = componentsRepository.findByComponentCode(nonStandardCode);
+                    if (anyStatus.isPresent() && anyStatus.get().getStatus() == 0) {
+                        // 恢复已删除的组件
+                        Components toRestore = anyStatus.get();
+                        String baseComponentCode = nonStandardCode.substring(0, nonStandardCode.indexOf("~"));
+                        Optional<Components> baseComponentOpt = componentsRepository.findActiveByComponentCode(baseComponentCode);
+                        
+                        if (baseComponentOpt.isPresent()) {
+                            toRestore.setStatus(1);
+                            toRestore.setName(baseComponentOpt.get().getName());
+                            Components restoredComponent = componentsRepository.save(toRestore);
+                            transactionManager.commit(queryStatus);
+                            log.info("Restored deleted component after conflict: {}", nonStandardCode);
+                            return Optional.of(restoredComponent);
+                        }
+                    }
+                    
+                    transactionManager.commit(queryStatus);
+                    log.error("Unique constraint conflict but cannot find the component: {}", nonStandardCode);
+                    return Optional.empty();
                 } catch (Exception queryEx) {
                     transactionManager.rollback(queryStatus);
                     log.error("Failed to re-query component after unique constraint conflict: {}", nonStandardCode, queryEx);
@@ -880,7 +942,7 @@ public class BreakdownServiceImpl implements BreakdownService {
             result.put("procurementFlag", component.getProcurementFlag());
             result.put("commonPartsFlag", component.getCommonPartsFlag());
             
-            // 首先保存当前组件本身到分解表（即使没有子组件）
+            // 保存分解记录
             saveBreakdownRecord(containerComponent, component, containerComponent.getQuantity());
             
             // 递归查找所有子部件，并保存到数据库
@@ -932,12 +994,17 @@ public class BreakdownServiceImpl implements BreakdownService {
     
     /**
      * 保存分解记录
+     * 使用 READ_COMMITTED 隔离级别，减少事务间的锁冲突
      */
-    private void saveBreakdownRecord(ContainerComponents containerComponent, Components subComponent, Integer quantity) {
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public void saveBreakdownRecord(ContainerComponents containerComponent, Components subComponent, Integer quantity) {
         ContainerComponentsBreakdown breakdown = new ContainerComponentsBreakdown();
         breakdown.setContainerComponent(containerComponent);
         breakdown.setSubComponent(subComponent);
-        breakdown.setContainer(containerComponent.getContainer());
+        
+        // 使用 getReference 获取 Container 代理对象，避免加载完整对象
+        Containers containerProxy = entityManager.getReference(Containers.class, containerComponent.getContainer().getId());
+        breakdown.setContainer(containerProxy);
         breakdown.setQuantity(quantity);
         
         ContainerComponentsBreakdown savedBreakdown = breakdownRepository.save(breakdown);
