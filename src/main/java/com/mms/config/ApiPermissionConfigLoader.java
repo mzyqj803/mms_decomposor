@@ -14,7 +14,8 @@ import java.util.Map;
 
 /**
  * API权限配置加载器
- * 手动加载YAML配置文件
+ * 优先尝试使用 @ConfigurationProperties 自动绑定
+ * 如果自动绑定失败或配置为空，则使用编程方式手动加载YAML配置文件
  */
 @Component
 @Slf4j
@@ -30,6 +31,18 @@ public class ApiPermissionConfigLoader {
     
     @PostConstruct
     public void loadConfig() {
+        // 首先检查 @ConfigurationProperties 是否已经自动加载了配置
+        List<ApiPermissionConfig.ApiPermissionMapping> existingMappings = apiPermissionConfig.getApiPermissions();
+        
+        if (existingMappings != null && !existingMappings.isEmpty()) {
+            log.info("通过 @ConfigurationProperties 自动绑定成功，已加载 {} 个API权限映射规则", existingMappings.size());
+            log.debug("配置来源: @ConfigurationProperties 自动绑定");
+            return;
+        }
+        
+        // 如果自动绑定失败或配置为空，使用编程方式加载
+        log.info("@ConfigurationProperties 自动绑定未成功或配置为空，尝试使用编程方式加载配置...");
+        
         try {
             ClassPathResource resource = new ClassPathResource("api-permission-mapping.yml");
             if (!resource.exists()) {
@@ -44,7 +57,7 @@ public class ApiPermissionConfigLoader {
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> permissionsList = (List<Map<String, Object>>) yamlData.get("api-permissions");
                 
-                if (permissionsList != null) {
+                if (permissionsList != null && !permissionsList.isEmpty()) {
                     List<ApiPermissionConfig.ApiPermissionMapping> mappings = new ArrayList<>();
                     
                     for (Map<String, Object> item : permissionsList) {
@@ -64,15 +77,17 @@ public class ApiPermissionConfigLoader {
                         mappings.add(mapping);
                     }
                     
-                    // 使用反射设置配置
+                    // 设置配置
                     apiPermissionConfig.setApiPermissions(mappings);
-                    log.info("成功从 api-permission-mapping.yml 加载 {} 个API权限映射规则", mappings.size());
+                    log.info("成功通过编程方式从 api-permission-mapping.yml 加载 {} 个API权限映射规则", mappings.size());
+                    log.debug("配置来源: 编程方式手动加载");
                 } else {
-                    log.warn("配置文件中未找到 api-permissions 节点");
+                    log.warn("配置文件中未找到 api-permissions 节点或节点为空");
                 }
             }
         } catch (Exception e) {
-            log.error("加载 api-permission-mapping.yml 配置文件失败: {}", e.getMessage(), e);
+            log.error("通过编程方式加载 api-permission-mapping.yml 配置文件失败: {}", e.getMessage(), e);
+            log.error("配置加载失败，API权限检查可能无法正常工作", e);
         }
     }
 }

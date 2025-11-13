@@ -11,13 +11,16 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +49,12 @@ public class AuthServiceImpl implements AuthService {
             // 获取用户实体（使用只读事务）
             User user = getUserByUsername(username);
             
+            // 提取用户权限（排除ROLE_前缀的角色权限，只保留具体权限）
+            List<String> permissions = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .filter(authority -> !authority.startsWith("ROLE_")) // 排除角色权限
+                    .collect(Collectors.toList());
+            
             // 构建响应
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -58,6 +67,7 @@ public class AuthServiceImpl implements AuthService {
             userInfo.put("name", user.getName());
             userInfo.put("email", user.getEmail());
             userInfo.put("avatar", user.getAvatar() != null ? user.getAvatar() : "");
+            userInfo.put("permissions", permissions);
             
             response.put("user", userInfo);
             

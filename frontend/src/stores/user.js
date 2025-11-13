@@ -8,6 +8,22 @@ export const useUserStore = defineStore('user', () => {
   
   const isLoggedIn = computed(() => !!token.value)
   
+  // 检查用户是否有指定权限
+  const hasPermission = (permission) => {
+    if (!user.value || !user.value.permissions) {
+      return false
+    }
+    return user.value.permissions.includes(permission)
+  }
+  
+  // 检查用户是否有任一指定权限
+  const hasAnyPermission = (permissions) => {
+    if (!user.value || !user.value.permissions) {
+      return false
+    }
+    return permissions.some(permission => user.value.permissions.includes(permission))
+  }
+  
   const login = async (username, password) => {
     try {
       const response = await fetch('/api/auth/login', {
@@ -92,6 +108,8 @@ export const useUserStore = defineStore('user', () => {
     token,
     isLoggedIn,
     authChecked,
+    hasPermission,
+    hasAnyPermission,
     login,
     logout,
     checkAuth,

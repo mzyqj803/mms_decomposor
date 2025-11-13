@@ -15,52 +15,62 @@
         router
         class="sidebar-menu"
       >
-        <el-menu-item index="/contracts">
+        <!-- 合同管理 - 需要 CONTRACT:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('CONTRACT:VIEW')" index="/contracts">
           <el-icon><Document /></el-icon>
           <template #title>合同管理</template>
         </el-menu-item>
         
-        <el-menu-item index="/components">
+        <!-- 零部件管理 - 需要 COMPONENT:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('COMPONENT:VIEW')" index="/components">
           <el-icon><Box /></el-icon>
           <template #title>零部件管理</template>
         </el-menu-item>
         
-        <el-menu-item index="/fastener-warehouse">
+        <!-- 紧固件库管理 - 需要 FASTENER:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('FASTENER:VIEW')" index="/fastener-warehouse">
           <el-icon><Tools /></el-icon>
           <template #title>紧固件库管理</template>
         </el-menu-item>
         
-        <el-menu-item index="/containers">
+        <!-- 装箱单管理 - 需要 CONTAINER:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('CONTAINER:VIEW')" index="/containers">
           <el-icon><Collection /></el-icon>
           <template #title>装箱单管理</template>
         </el-menu-item>
         
-        <el-menu-item index="/breakdown">
+        <!-- 工艺分解 - 需要 BREAKDOWN:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('BREAKDOWN:VIEW')" index="/breakdown">
           <el-icon><Operation /></el-icon>
           <template #title>工艺分解</template>
         </el-menu-item>
         
-        <el-menu-item index="/production-plan">
+        <!-- 生产计划 - 需要 PRODUCTION:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('PRODUCTION:VIEW')" index="/production-plan">
           <el-icon><Calendar /></el-icon>
           <template #title>生产计划</template>
         </el-menu-item>
         
-        <el-menu-item index="/cost-estimation">
+        <!-- 成本估算 - 需要 COST:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('COST:VIEW')" index="/cost-estimation">
           <el-icon><Money /></el-icon>
           <template #title>成本估算</template>
         </el-menu-item>
         
-        <el-menu-item index="/bidding">
+        <!-- 投标报价 - 需要 BIDDING:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('BIDDING:VIEW')" index="/bidding">
           <el-icon><TrendCharts /></el-icon>
           <template #title>投标报价</template>
         </el-menu-item>
         
-        <el-menu-item index="/history">
+        <!-- 修改历史 - 需要 HISTORY:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasPermission('HISTORY:VIEW')" index="/history">
           <el-icon><Clock /></el-icon>
           <template #title>修改历史</template>
         </el-menu-item>
         
-        <el-menu-item index="/settings">
+        <!-- 系统设置 - 需要 USER:VIEW 或 ROLE:VIEW 权限 -->
+        <el-menu-item v-if="userStore.hasAnyPermission(['USER:VIEW', 'ROLE:VIEW'])" index="/settings">
           <el-icon><Setting /></el-icon>
           <template #title>系统设置</template>
         </el-menu-item>

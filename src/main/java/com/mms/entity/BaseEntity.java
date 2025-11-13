@@ -1,16 +1,19 @@
 package com.mms.entity;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Data
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @MappedSuperclass
 public abstract class BaseEntity {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
     
     // 移除 @CreatedDate 避免与数据库 DEFAULT CURRENT_TIMESTAMP() 冲突

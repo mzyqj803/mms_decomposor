@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS permissions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2) Role_Permissions关联表
+-- 注意：此表依赖于 roles 和 permissions 表，必须在它们创建之后创建
 CREATE TABLE IF NOT EXISTS role_permissions (
   role_id           INT NOT NULL,
   permission_id     INT NOT NULL,
@@ -34,8 +35,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   CONSTRAINT fk_rp_permission
     FOREIGN KEY (permission_id) REFERENCES permissions(ID) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-SET FOREIGN_KEY_CHECKS = 1;
 
 -- 插入权限数据
 INSERT INTO permissions (name, code, description, resource, action, enabled, Entry_User) VALUES
@@ -71,22 +70,63 @@ INSERT INTO permissions (name, code, description, resource, action, enabled, Ent
 ('创建角色', 'ROLE:CREATE', '创建新角色', 'ROLE', 'CREATE', 1, 'SYS_USER'),
 ('编辑角色', 'ROLE:UPDATE', '编辑角色信息', 'ROLE', 'UPDATE', 1, 'SYS_USER'),
 ('删除角色', 'ROLE:DELETE', '删除角色', 'ROLE', 'DELETE', 1, 'SYS_USER'),
-('查看角色', 'ROLE:VIEW', '查看角色信息', 'ROLE', 'VIEW', 1, 'SYS_USER')
+('查看角色', 'ROLE:VIEW', '查看角色信息', 'ROLE', 'VIEW', 1, 'SYS_USER'),
+
+-- 紧固件相关权限
+('创建紧固件', 'FASTENER:CREATE', '创建新紧固件', 'FASTENER', 'CREATE', 1, 'SYS_USER'),
+('编辑紧固件', 'FASTENER:UPDATE', '编辑现有紧固件', 'FASTENER', 'UPDATE', 1, 'SYS_USER'),
+('删除紧固件', 'FASTENER:DELETE', '删除紧固件', 'FASTENER', 'DELETE', 1, 'SYS_USER'),
+('查看紧固件', 'FASTENER:VIEW', '查看紧固件信息', 'FASTENER', 'VIEW', 1, 'SYS_USER'),
+
+-- 生产计划相关权限
+('创建生产计划', 'PRODUCTION:CREATE', '创建新生产计划', 'PRODUCTION', 'CREATE', 1, 'SYS_USER'),
+('编辑生产计划', 'PRODUCTION:UPDATE', '编辑生产计划', 'PRODUCTION', 'UPDATE', 1, 'SYS_USER'),
+('删除生产计划', 'PRODUCTION:DELETE', '删除生产计划', 'PRODUCTION', 'DELETE', 1, 'SYS_USER'),
+('查看生产计划', 'PRODUCTION:VIEW', '查看生产计划信息', 'PRODUCTION', 'VIEW', 1, 'SYS_USER'),
+
+-- 成本估算相关权限
+('创建成本估算', 'COST:CREATE', '创建新成本估算', 'COST', 'CREATE', 1, 'SYS_USER'),
+('编辑成本估算', 'COST:UPDATE', '编辑成本估算', 'COST', 'UPDATE', 1, 'SYS_USER'),
+('删除成本估算', 'COST:DELETE', '删除成本估算', 'COST', 'DELETE', 1, 'SYS_USER'),
+('查看成本估算', 'COST:VIEW', '查看成本估算信息', 'COST', 'VIEW', 1, 'SYS_USER'),
+
+-- 投标报价相关权限
+('创建投标报价', 'BIDDING:CREATE', '创建新投标报价', 'BIDDING', 'CREATE', 1, 'SYS_USER'),
+('编辑投标报价', 'BIDDING:UPDATE', '编辑投标报价', 'BIDDING', 'UPDATE', 1, 'SYS_USER'),
+('删除投标报价', 'BIDDING:DELETE', '删除投标报价', 'BIDDING', 'DELETE', 1, 'SYS_USER'),
+('查看投标报价', 'BIDDING:VIEW', '查看投标报价信息', 'BIDDING', 'VIEW', 1, 'SYS_USER'),
+
+-- 修改历史相关权限
+('查看修改历史', 'HISTORY:VIEW', '查看修改历史记录', 'HISTORY', 'VIEW', 1, 'SYS_USER')
 ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), resource=VALUES(resource), action=VALUES(action);
 
 -- 为管理员角色分配所有权限
+-- 注意：外键检查已在脚本开头关闭，此操作依赖于 roles 表已有 ADMIN 角色数据（由 create_users_and_roles.sql 提供）
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.ID, p.ID
-FROM roles r, permissions p
+FROM roles r
+CROSS JOIN permissions p
 WHERE r.code = 'ADMIN'
 ON DUPLICATE KEY UPDATE role_id=VALUES(role_id);
 
 -- 为普通用户角色分配基础查看权限
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.ID, p.ID
-FROM roles r, permissions p
+FROM roles r
+CROSS JOIN permissions p
 WHERE r.code = 'USER' 
-  AND p.code IN ('CONTRACT:VIEW', 'CONTAINER:VIEW', 'BREAKDOWN:VIEW', 'COMPONENT:VIEW')
+  AND p.code IN ('CONTRACT:VIEW', 'CONTAINER:VIEW', 'BREAKDOWN:VIEW', 'COMPONENT:VIEW', 'FASTENER:VIEW')
 ON DUPLICATE KEY UPDATE role_id=VALUES(role_id);
+
+-- 为只读用户角色分配所有权限（与管理员相同）
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.ID, p.ID
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code = 'READONLY'
+ON DUPLICATE KEY UPDATE role_id=VALUES(role_id);
+
+-- 恢复外键检查
+SET FOREIGN_KEY_CHECKS = 1;
 
 

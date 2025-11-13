@@ -223,4 +223,147 @@ api-permissions:
     permissions: [ROLE:UPDATE]
     description: 更新角色权限
 
+  # 紧固件仓库管理API
+  - path: /api/fastener-warehouse
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 获取紧固件列表
+    
+  - path: /api/fastener-warehouse/{id}
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 获取紧固件详情
+    
+  - path: /api/fastener-warehouse
+    methods: [POST]
+    permissions: [FASTENER:CREATE]
+    description: 创建紧固件
+    
+  - path: /api/fastener-warehouse/{id}
+    methods: [PUT]
+    permissions: [FASTENER:UPDATE]
+    description: 更新紧固件
+    
+  - path: /api/fastener-warehouse/{id}
+    methods: [DELETE]
+    permissions: [FASTENER:DELETE]
+    description: 删除紧固件
+    
+  - path: /api/fastener-warehouse/search
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 搜索紧固件
+    
+  - path: /api/fastener-warehouse/product-code/{productCode}
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 根据产品代码获取紧固件
+    
+  - path: /api/fastener-warehouse/erp-code/{erpCode}
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 根据ERP代码获取紧固件
+    
+  - path: /api/fastener-warehouse/default
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 获取默认紧固件列表
+    
+  - path: /api/fastener-warehouse/{id}/default
+    methods: [PUT]
+    permissions: [FASTENER:UPDATE]
+    description: 设置默认紧固件
+    
+  - path: /api/fastener-warehouse/materials
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 获取所有材料列表
+    
+  - path: /api/fastener-warehouse/surface-treatments
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 获取所有表面处理列表
+    
+  - path: /api/fastener-warehouse/levels
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 获取所有等级列表
+
+  # 紧固件相似度搜索API
+  - path: /api/fastener-similarity/search
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 搜索相似紧固件
+    
+  - path: /api/fastener-similarity/search-by-id/{id}
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 根据ID搜索相似紧固件
+    
+  - path: /api/fastener-similarity/rebuild-index
+    methods: [POST]
+    permissions: [FASTENER:UPDATE]
+    description: 重新构建索引
+    
+  - path: /api/fastener-similarity/index-status
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 获取索引状态
+
+  # 紧固件缓存管理API
+  - path: /api/fastener-cache/status
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 检查缓存状态
+    
+  - path: /api/fastener-cache/initialize
+    methods: [POST]
+    permissions: [FASTENER:UPDATE]
+    description: 初始化缓存
+    
+  - path: /api/fastener-cache/clear
+    methods: [DELETE]
+    permissions: [FASTENER:DELETE]
+    description: 清空缓存
+    
+  - path: /api/fastener-cache/reload/{productCode}
+    methods: [POST]
+    permissions: [FASTENER:UPDATE]
+    description: 重新加载指定产品代码缓存
+    
+  - path: /api/fastener-cache/test/{productCode}
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 测试从缓存获取紧固件
+    
+  - path: /api/fastener-cache/stats
+    methods: [GET]
+    permissions: [FASTENER:VIEW]
+    description: 获取缓存统计信息
+
+  # 注意：以下功能的API端点尚未实现，待实现后添加权限映射
+  # 生产计划API - 待实现
+  # - path: /api/production-plan
+  #   methods: [GET]
+  #   permissions: [PRODUCTION:VIEW]
+  #   description: 获取生产计划列表
+
+  # 成本估算API - 待实现
+  # - path: /api/cost-estimation
+  #   methods: [GET]
+  #   permissions: [COST:VIEW]
+  #   description: 获取成本估算列表
+
+  # 投标报价API - 待实现
+  # - path: /api/bidding
+  #   methods: [GET]
+  #   permissions: [BIDDING:VIEW]
+  #   description: 获取投标报价列表
+
+  # 修改历史API - 待实现
+  # - path: /api/history
+  #   methods: [GET]
+  #   permissions: [HISTORY:VIEW]
+  #   description: 获取修改历史记录
+
 

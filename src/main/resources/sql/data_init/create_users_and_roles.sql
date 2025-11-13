@@ -50,24 +50,27 @@ CREATE TABLE IF NOT EXISTS user_roles (
     FOREIGN KEY (role_id) REFERENCES roles(ID) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-SET FOREIGN_KEY_CHECKS = 1;
-
--- 插入默认角色
+-- 插入默认角色（外键检查已在脚本开头关闭）
 INSERT INTO roles (name, code, description, enabled, Entry_User) VALUES
 ('管理员', 'ADMIN', '系统管理员，拥有所有权限', 1, 'SYS_USER'),
-('普通用户', 'USER', '普通用户，拥有基本权限', 1, 'SYS_USER')
+('普通用户', 'USER', '普通用户，拥有基本权限', 1, 'SYS_USER'),
+('只读用户', 'READONLY', '只读用户，只能查看数据，不能进行修改操作', 1, 'SYS_USER')
 ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description);
 
 -- 插入默认管理员用户（密码: admin123）
--- BCrypt加密后的密码: $2a$10$jCiWEct0.PTlvEH5Rfv8jOspG2izbEfIBGP4/2M7l0qMTsOZ26Xza
+-- BCrypt加密后的密码（strength=12）: $2a$12$/hf/dDEN1GuvNBwiIwwpk.jlqgA5JAmHSWz3hC2zfb57NThHac7kO
 INSERT INTO users (username, password, name, email, enabled, Entry_User) VALUES
-('admin', '$2a$10$jCiWEct0.PTlvEH5Rfv8jOspG2izbEfIBGP4/2M7l0qMTsOZ26Xza', '系统管理员', 'admin@mms.com', 1, 'SYS_USER')
+('admin', '$2a$12$/hf/dDEN1GuvNBwiIwwpk.jlqgA5JAmHSWz3hC2zfb57NThHac7kO', '系统管理员', 'admin@mms.com', 1, 'SYS_USER')
 ON DUPLICATE KEY UPDATE name=VALUES(name), email=VALUES(email);
 
 -- 为管理员用户分配管理员角色
 INSERT INTO user_roles (user_id, role_id)
 SELECT u.ID, r.ID
-FROM users u, roles r
+FROM users u
+CROSS JOIN roles r
 WHERE u.username = 'admin' AND r.code = 'ADMIN'
 ON DUPLICATE KEY UPDATE user_id=VALUES(user_id);
+
+-- 恢复外键检查
+SET FOREIGN_KEY_CHECKS = 1;
 

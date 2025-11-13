@@ -6,10 +6,15 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/auth")
@@ -60,6 +65,13 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
         }
         
+        // 从SecurityContext中获取当前用户的权限
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        List<String> permissions = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(authority -> !authority.startsWith("ROLE_")) // 排除角色权限
+                .collect(Collectors.toList());
+        
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("id", user.getId());
         userInfo.put("username", user.getUsername());
@@ -67,6 +79,7 @@ public class AuthController {
         userInfo.put("email", user.getEmail());
         userInfo.put("avatar", user.getAvatar() != null ? user.getAvatar() : "");
         userInfo.put("enabled", user.getEnabled());
+        userInfo.put("permissions", permissions);
         
         return ResponseEntity.ok(userInfo);
     }
