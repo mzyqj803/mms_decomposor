@@ -9,6 +9,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     CreateComponentDialog: typeof import('./src/components/CreateComponentDialog.vue')['default']
     CreateContainerDialog: typeof import('./src/components/CreateContainerDialog.vue')['default']
+    CreateUserDialog: typeof import('./src/components/CreateUserDialog.vue')['default']
     EditComponentDialog: typeof import('./src/components/EditComponentDialog.vue')['default']
     EditContainerDialog: typeof import('./src/components/EditContainerDialog.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
@@ -50,6 +51,7 @@ declare module 'vue' {
     ElStatistic: typeof import('element-plus/es')['ElStatistic']
     ElStep: typeof import('element-plus/es')['ElStep']
     ElSteps: typeof import('element-plus/es')['ElSteps']
+    ElSubMenu: typeof import('element-plus/es')['ElSubMenu']
     ElSwitch: typeof import('element-plus/es')['ElSwitch']
     ElTable: typeof import('element-plus/es')['ElTable']
     ElTableColumn: typeof import('element-plus/es')['ElTableColumn']

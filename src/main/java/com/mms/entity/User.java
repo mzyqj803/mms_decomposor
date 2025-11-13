@@ -1,5 +1,6 @@
 package com.mms.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -17,6 +18,7 @@ public class User extends BaseEntity {
     private String username;
     
     @Column(name = "password", length = 255, nullable = false)
+    @JsonIgnore
     private String password;
     
     @Column(name = "name", length = 100, nullable = false)

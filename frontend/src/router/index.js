@@ -81,7 +81,22 @@ const routes = [
         path: '/settings',
         name: 'Settings',
         component: () => import('@/views/Settings.vue'),
-        meta: { title: '系统设置' }
+        meta: { title: '系统设置' },
+        redirect: '/settings/users',
+        children: [
+          {
+            path: 'users',
+            name: 'Users',
+            component: () => import('@/views/Users.vue'),
+            meta: { title: '用户管理', requiresPermission: 'USER:VIEW' }
+          },
+          {
+            path: 'roles',
+            name: 'Roles',
+            component: () => import('@/views/Roles.vue'),
+            meta: { title: '角色管理', requiresPermission: 'ROLE:VIEW' }
+          }
+        ]
       }
     ]
   },

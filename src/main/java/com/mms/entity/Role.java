@@ -1,5 +1,6 @@
 package com.mms.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -26,6 +27,7 @@ public class Role extends BaseEntity {
     private Boolean enabled = true;
     
     @ManyToMany(mappedBy = "roles")
+    @JsonIgnore
     private Set<User> users = new HashSet<>();
     
     @ManyToMany(fetch = FetchType.EAGER)

@@ -70,10 +70,22 @@
         </el-menu-item>
         
         <!-- 系统设置 - 需要 USER:VIEW 或 ROLE:VIEW 权限 -->
-        <el-menu-item v-if="userStore.hasAnyPermission(['USER:VIEW', 'ROLE:VIEW'])" index="/settings">
-          <el-icon><Setting /></el-icon>
-          <template #title>系统设置</template>
-        </el-menu-item>
+        <el-sub-menu v-if="userStore.hasAnyPermission(['USER:VIEW', 'ROLE:VIEW'])" index="/settings">
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>系统设置</span>
+          </template>
+          <!-- 用户管理 - 需要 USER:VIEW 权限 -->
+          <el-menu-item v-if="userStore.hasPermission('USER:VIEW')" index="/settings/users">
+            <el-icon><User /></el-icon>
+            <template #title>用户管理</template>
+          </el-menu-item>
+          <!-- 角色管理 - 需要 ROLE:VIEW 权限 -->
+          <el-menu-item v-if="userStore.hasPermission('ROLE:VIEW')" index="/settings/roles">
+            <el-icon><UserFilled /></el-icon>
+            <template #title>角色管理</template>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     
@@ -140,7 +152,13 @@ const userStore = useUserStore()
 
 const isCollapse = ref(false)
 
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => {
+  // 处理子菜单的激活状态
+  if (route.path.startsWith('/settings')) {
+    return route.path
+  }
+  return route.path
+})
 
 const breadcrumbs = computed(() => {
   const matched = route.matched.filter(item => item.meta && item.meta.title)
@@ -217,6 +235,30 @@ watch(route, () => {
       &.is-active {
         background-color: #409eff;
         color: #fff;
+      }
+    }
+    
+    :deep(.el-sub-menu) {
+      .el-sub-menu__title {
+        color: #bfcbd9;
+        
+        &:hover {
+          background-color: #263445;
+          color: #fff;
+        }
+      }
+      
+      .el-menu-item {
+        background-color: #1f2d3d !important;
+        
+        &:hover {
+          background-color: #263445 !important;
+        }
+        
+        &.is-active {
+          background-color: #409eff !important;
+          color: #fff;
+        }
       }
     }
   }
