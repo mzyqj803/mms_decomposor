@@ -1,6 +1,10 @@
 package com.mms.controller;
 
+import com.mms.entity.User;
+import com.mms.service.AuthService;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,30 +16,20 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthController {
     
+    private final AuthService authService;
+    
     /**
      * 用户登录
      */
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody LoginRequest request) {
-        // TODO: 实现实际的登录逻辑
-        // 1. 验证用户名和密码
-        // 2. 生成JWT token
-        // 3. 返回用户信息和token
+        Map<String, Object> response = authService.login(request.getUsername(), request.getPassword());
         
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "登录成功");
-        response.put("token", "mock-jwt-token");
-        
-        Map<String, Object> user = new HashMap<>();
-        user.put("id", 1L);
-        user.put("username", request.getUsername());
-        user.put("name", "管理员");
-        user.put("avatar", "");
-        
-        response.put("user", user);
-        
-        return ResponseEntity.ok(response);
+        if (Boolean.TRUE.equals(response.get("success"))) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
     }
     
     /**
@@ -43,6 +37,8 @@ public class AuthController {
      */
     @PostMapping("/logout")
     public ResponseEntity<Map<String, Object>> logout() {
+        authService.logout();
+        
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("message", "登出成功");
@@ -55,33 +51,29 @@ public class AuthController {
      */
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> getCurrentUser() {
-        Map<String, Object> user = new HashMap<>();
-        user.put("id", 1L);
-        user.put("username", "admin");
-        user.put("name", "管理员");
-        user.put("avatar", "");
+        User user = authService.getCurrentUser();
         
-        return ResponseEntity.ok(user);
+        if (user == null) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", "未登录或登录已过期");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+        }
+        
+        Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("id", user.getId());
+        userInfo.put("username", user.getUsername());
+        userInfo.put("name", user.getName());
+        userInfo.put("email", user.getEmail());
+        userInfo.put("avatar", user.getAvatar() != null ? user.getAvatar() : "");
+        userInfo.put("enabled", user.getEnabled());
+        
+        return ResponseEntity.ok(userInfo);
     }
     
+    @Data
     public static class LoginRequest {
         private String username;
         private String password;
-        
-        public String getUsername() {
-            return username;
-        }
-        
-        public void setUsername(String username) {
-            this.username = username;
-        }
-        
-        public String getPassword() {
-            return password;
-        }
-        
-        public void setPassword(String password) {
-            this.password = password;
-        }
     }
 }

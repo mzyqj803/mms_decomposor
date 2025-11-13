@@ -76,3 +76,10 @@ logging:
 spring.servlet.multipart:
   max-file-size: 10MB
   max-request-size: 10MB
+
+# JWT配置
+jwt:
+  secret: mms-decomposor-secret-key-change-in-production-environment-2024
+  expiration: 3600  # Token过期时间（秒），默认1小时
+  token-prefix: "Bearer "
+  header-name: "Authorization"

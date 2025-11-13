@@ -91,7 +91,9 @@ const handleLogin = async () => {
         const success = await userStore.login(loginForm.username, loginForm.password)
         if (success) {
           ElMessage.success('登录成功')
-          router.push('/')
+          // 跳转到之前访问的页面，如果没有则跳转到首页
+          const redirect = router.currentRoute.value.query.redirect || '/'
+          router.push(redirect)
         } else {
           ElMessage.error('用户名或密码错误')
         }

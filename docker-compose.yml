@@ -25,6 +25,7 @@ services:
       - ./src/main/resources/sql/data_init/update_procurement_flag.sql:/docker-entrypoint-initdb.d/08-update_procurement_flag.sql
       - ./src/main/resources/sql/data_init/update_common_parts_flag.sql:/docker-entrypoint-initdb.d/09-update_common_parts_flag.sql
       - ./src/main/resources/sql/data_init/fix_duplicate_component_specs.sql:/docker-entrypoint-initdb.d/10-fix_duplicate_specs.sql
+      - ./src/main/resources/sql/data_init/create_users_and_roles.sql:/docker-entrypoint-initdb.d/11-create_users_and_roles.sql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s

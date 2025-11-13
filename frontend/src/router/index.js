@@ -98,16 +98,51 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   
-  if (to.meta.requiresAuth && !userStore.isLoggedIn) {
-    next('/login')
-  } else if (to.path === '/login' && userStore.isLoggedIn) {
-    next('/')
-  } else {
+  // 如果访问登录页
+  if (to.path === '/login') {
+    // 如果已登录，验证token有效性
+    if (userStore.isLoggedIn) {
+      const isValid = await userStore.checkAuth()
+      if (isValid) {
+        // Token有效，跳转到首页
+        next('/')
+        return
+      }
+    }
+    // 未登录或token无效，允许访问登录页
     next()
+    return
   }
+  
+  // 如果需要认证的路由
+  if (to.meta.requiresAuth) {
+    if (!userStore.isLoggedIn) {
+      // 未登录，跳转到登录页
+      next({
+        path: '/login',
+        query: { redirect: to.fullPath } // 保存原始路径，登录后可以跳转回来
+      })
+      return
+    }
+    
+    // 已登录，验证token有效性（只在首次或token变化时验证）
+    if (!userStore.authChecked) {
+      const isValid = await userStore.checkAuth()
+      if (!isValid) {
+        // Token无效，跳转到登录页
+        next({
+          path: '/login',
+          query: { redirect: to.fullPath }
+        })
+        return
+      }
+    }
+  }
+  
+  next()
 })
 
 export default router

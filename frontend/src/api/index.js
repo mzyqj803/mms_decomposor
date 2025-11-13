@@ -54,6 +54,8 @@ api.interceptors.response.use(
       const userStore = useUserStore()
       userStore.logout()
       ElMessage.error('登录已过期，请重新登录')
+      // 跳转到登录页
+      window.location.href = '/login'
     } 
     // 处理500服务器错误
     else if (error.response?.status >= 500) {
