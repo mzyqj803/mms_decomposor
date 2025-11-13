@@ -118,6 +118,20 @@
       v-model="createDialogVisible"
       @success="handleCreateSuccess"
     />
+    
+    <!-- 查看用户对话框 -->
+    <ViewUserDialog
+      v-model="viewDialogVisible"
+      :user-id="selectedUserId"
+      @edit="handleEditFromView"
+    />
+    
+    <!-- 编辑用户对话框 -->
+    <EditUserDialog
+      v-model="editDialogVisible"
+      :user-data="selectedUserData"
+      @success="handleEditSuccess"
+    />
   </div>
 </template>
 
@@ -127,12 +141,18 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import api from '@/api'
 import CreateUserDialog from '@/components/CreateUserDialog.vue'
+import ViewUserDialog from '@/components/ViewUserDialog.vue'
+import EditUserDialog from '@/components/EditUserDialog.vue'
 
 const userStore = useUserStore()
 
 const loading = ref(false)
 const users = ref([])
 const createDialogVisible = ref(false)
+const viewDialogVisible = ref(false)
+const editDialogVisible = ref(false)
+const selectedUserId = ref(null)
+const selectedUserData = ref(null)
 const searchForm = ref({
   keyword: ''
 })
@@ -189,11 +209,24 @@ const handleCreateSuccess = () => {
 }
 
 const handleView = (row) => {
-  ElMessage.info(`查看用户: ${row.username}`)
+  selectedUserId.value = row.id
+  viewDialogVisible.value = true
 }
 
 const handleEdit = (row) => {
-  ElMessage.info(`编辑用户: ${row.username}`)
+  selectedUserData.value = row
+  editDialogVisible.value = true
+}
+
+const handleEditFromView = (userData) => {
+  selectedUserData.value = userData
+  viewDialogVisible.value = false
+  editDialogVisible.value = true
+}
+
+const handleEditSuccess = () => {
+  // 编辑成功后刷新列表
+  loadUsers()
 }
 
 const handleDelete = async (row) => {

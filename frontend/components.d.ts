@@ -12,6 +12,7 @@ declare module 'vue' {
     CreateUserDialog: typeof import('./src/components/CreateUserDialog.vue')['default']
     EditComponentDialog: typeof import('./src/components/EditComponentDialog.vue')['default']
     EditContainerDialog: typeof import('./src/components/EditContainerDialog.vue')['default']
+    EditUserDialog: typeof import('./src/components/EditUserDialog.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAside: typeof import('element-plus/es')['ElAside']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']
@@ -65,6 +66,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ViewComponentDialog: typeof import('./src/components/ViewComponentDialog.vue')['default']
+    ViewUserDialog: typeof import('./src/components/ViewUserDialog.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']
