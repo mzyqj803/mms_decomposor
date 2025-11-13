@@ -1,5 +1,6 @@
 package com.mms.config;
 
+import com.mms.security.ApiPermissionFilter;
 import com.mms.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,7 @@ import java.util.Arrays;
 public class SecurityConfig {
     
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ApiPermissionFilter apiPermissionFilter;
     private final UserDetailsService userDetailsService;
     
     /**
@@ -72,6 +74,7 @@ public class SecurityConfig {
                 // 其他所有请求都需要认证
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(apiPermissionFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         
         return http.build();

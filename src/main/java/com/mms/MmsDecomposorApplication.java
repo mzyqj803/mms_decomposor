@@ -1,5 +1,6 @@
 package com.mms;
 
+import com.mms.config.ApiPermissionConfig;
 import com.mms.service.ComponentCacheService;
 import com.mms.service.FastenerCacheService;
 import lombok.RequiredArgsConstructor;
@@ -7,8 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
+@EnableConfigurationProperties(ApiPermissionConfig.class)
 @RequiredArgsConstructor
 @Slf4j
 public class MmsDecomposorApplication implements CommandLineRunner {

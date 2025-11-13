@@ -12,7 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
-import java.util.stream.Collectors;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -39,12 +40,26 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     
     /**
      * 获取用户权限
+     * 包括角色权限和具体权限
      */
     private Collection<? extends GrantedAuthority> getAuthorities(User user) {
-        return user.getRoles().stream()
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        
+        // 添加角色权限（格式：ROLE_ADMIN, ROLE_USER）
+        user.getRoles().stream()
                 .filter(role -> role.getEnabled())
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getCode().toUpperCase()))
-                .collect(Collectors.toList());
+                .forEach(role -> {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getCode().toUpperCase()));
+                    
+                    // 添加角色的具体权限（格式：CONTRACT:CREATE, USER:DELETE等）
+                    role.getPermissions().stream()
+                            .filter(permission -> permission.getEnabled())
+                            .forEach(permission -> 
+                                authorities.add(new SimpleGrantedAuthority(permission.getCode()))
+                            );
+                });
+        
+        return authorities;
     }
 }
 

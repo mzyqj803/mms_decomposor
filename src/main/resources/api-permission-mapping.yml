@@ -1,0 +1,226 @@
+# API权限映射配置文件
+# 格式：API路径 -> 所需权限列表
+
+api-permissions:
+  # 合同管理API
+  - path: /api/contracts
+    methods: [GET]
+    permissions: [CONTRACT:VIEW]
+    description: 获取合同列表
+    
+  - path: /api/contracts/{id}
+    methods: [GET]
+    permissions: [CONTRACT:VIEW]
+    description: 获取合同详情
+    
+  - path: /api/contracts
+    methods: [POST]
+    permissions: [CONTRACT:CREATE]
+    description: 创建合同
+    
+  - path: /api/contracts/{id}
+    methods: [PUT]
+    permissions: [CONTRACT:UPDATE]
+    description: 更新合同
+    
+  - path: /api/contracts/{id}
+    methods: [DELETE]
+    permissions: [CONTRACT:DELETE]
+    description: 删除合同
+    
+  - path: /api/contracts/search
+    methods: [GET]
+    permissions: [CONTRACT:VIEW]
+    description: 搜索合同
+    
+  - path: /api/contracts/{id}/generate-container
+    methods: [POST]
+    permissions: [CONTRACT:CREATE]
+    description: 生成装箱单
+    
+  - path: /api/contracts/{id}/start-breakdown
+    methods: [POST]
+    permissions: [BREAKDOWN:EXECUTE]
+    description: 开始工艺分解
+    
+  - path: /api/contracts/{id}/breakdown-result
+    methods: [GET]
+    permissions: [BREAKDOWN:VIEW]
+    description: 获取工艺分解结果
+    
+  - path: /api/contracts/{id}/export
+    methods: [GET]
+    permissions: [BREAKDOWN:VIEW]
+    description: 导出分解表
+    
+  # 装箱单管理API
+  - path: /api/containers
+    methods: [GET]
+    permissions: [CONTAINER:VIEW]
+    description: 获取装箱单列表
+    
+  - path: /api/containers/{id}
+    methods: [GET]
+    permissions: [CONTAINER:VIEW]
+    description: 获取装箱单详情
+    
+  - path: /api/containers
+    methods: [POST]
+    permissions: [CONTAINER:CREATE]
+    description: 创建装箱单
+    
+  - path: /api/containers/{id}
+    methods: [PUT]
+    permissions: [CONTAINER:UPDATE]
+    description: 更新装箱单
+    
+  - path: /api/containers/{id}
+    methods: [DELETE]
+    permissions: [CONTAINER:DELETE]
+    description: 删除装箱单
+    
+  - path: /api/containers/upload
+    methods: [POST]
+    permissions: [CONTAINER:CREATE]
+    description: 上传装箱单文件
+    
+  # 零部件管理API
+  - path: /api/components
+    methods: [GET]
+    permissions: [COMPONENT:VIEW]
+    description: 获取零部件列表
+    
+  - path: /api/components/{id}
+    methods: [GET]
+    permissions: [COMPONENT:VIEW]
+    description: 获取零部件详情
+    
+  - path: /api/components/{id}/detail
+    methods: [GET]
+    permissions: [COMPONENT:VIEW]
+    description: 获取零部件完整详情
+    
+  - path: /api/components
+    methods: [POST]
+    permissions: [COMPONENT:CREATE]
+    description: 创建零部件
+    
+  - path: /api/components/{id}
+    methods: [PUT]
+    permissions: [COMPONENT:UPDATE]
+    description: 更新零部件
+    
+  - path: /api/components/{id}
+    methods: [DELETE]
+    permissions: [COMPONENT:DELETE]
+    description: 删除零部件
+    
+  - path: /api/components/search
+    methods: [GET]
+    permissions: [COMPONENT:VIEW]
+    description: 搜索零部件
+    
+  - path: /api/components/categories
+    methods: [GET]
+    permissions: [COMPONENT:VIEW]
+    description: 获取零部件分类
+    
+  - path: /api/components/specs/{componentCode}
+    methods: [GET]
+    permissions: [COMPONENT:VIEW]
+    description: 获取零部件规格
+    
+  # 工艺分解API
+  - path: /api/breakdown/{contractId}
+    methods: [GET]
+    permissions: [BREAKDOWN:VIEW]
+    description: 获取工艺分解结果
+    
+  - path: /api/breakdown/{contractId}/execute
+    methods: [POST]
+    permissions: [BREAKDOWN:EXECUTE]
+    description: 执行工艺分解
+    
+  - path: /api/breakdown/{contractId}/export
+    methods: [GET]
+    permissions: [BREAKDOWN:VIEW]
+    description: 导出分解结果
+    
+  # 用户管理API
+  - path: /api/users
+    methods: [GET]
+    permissions: [USER:VIEW]
+    description: 获取用户列表
+    
+  - path: /api/users/{id}
+    methods: [GET]
+    permissions: [USER:VIEW]
+    description: 获取用户详情
+    
+  - path: /api/users
+    methods: [POST]
+    permissions: [USER:CREATE]
+    description: 创建用户
+    
+  - path: /api/users/{id}
+    methods: [PUT]
+    permissions: [USER:UPDATE]
+    description: 更新用户
+    
+  - path: /api/users/{id}
+    methods: [DELETE]
+    permissions: [USER:DELETE]
+    description: 删除用户
+    
+  - path: /api/users/{id}/toggle-enabled
+    methods: [PUT]
+    permissions: [USER:UPDATE]
+    description: 启用/禁用用户
+    
+  - path: /api/users/{id}/change-password
+    methods: [PUT]
+    permissions: [USER:UPDATE]
+    description: 修改密码
+    
+  - path: /api/users/{id}/reset-password
+    methods: [PUT]
+    permissions: [USER:UPDATE]
+    description: 重置密码
+    
+  # 角色管理API
+  - path: /api/roles
+    methods: [GET]
+    permissions: [ROLE:VIEW]
+    description: 获取角色列表
+    
+  - path: /api/roles/{id}
+    methods: [GET]
+    permissions: [ROLE:VIEW]
+    description: 获取角色详情
+    
+  - path: /api/roles
+    methods: [POST]
+    permissions: [ROLE:CREATE]
+    description: 创建角色
+    
+  - path: /api/roles/{id}
+    methods: [PUT]
+    permissions: [ROLE:UPDATE]
+    description: 更新角色
+    
+  - path: /api/roles/{id}
+    methods: [DELETE]
+    permissions: [ROLE:DELETE]
+    description: 删除角色
+    
+  - path: /api/roles/{id}/permissions
+    methods: [GET]
+    permissions: [ROLE:VIEW]
+    description: 获取角色权限
+    
+  - path: /api/roles/{id}/permissions
+    methods: [PUT]
+    permissions: [ROLE:UPDATE]
+    description: 更新角色权限
+
+

@@ -7,6 +7,11 @@ spring:
   application:
     name: mms-decomposor
   
+  # 导入API权限映射配置
+  config:
+    import:
+      - classpath:api-permission-mapping.yml
+  
   datasource:
     url: jdbc:mariadb://mariadb:3306/mms_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
     username: mms_user

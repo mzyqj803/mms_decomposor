@@ -30,7 +30,6 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     
     @Override
-    @Transactional(readOnly = true)
     public Map<String, Object> login(String username, String password) {
         try {
             // 验证用户名和密码
@@ -38,15 +37,14 @@ public class AuthServiceImpl implements AuthService {
                 new UsernamePasswordAuthenticationToken(username, password)
             );
             
-            // 加载用户详情
+            // 加载用户详情（内部已有@Transactional(readOnly = true)）
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
             
             // 生成JWT token
             String token = jwtUtil.generateToken(userDetails);
             
-            // 获取用户实体
-            User user = userRepository.findByUsernameAndEnabledTrue(username)
-                    .orElseThrow(() -> new BadCredentialsException("用户不存在或已被禁用"));
+            // 获取用户实体（使用只读事务）
+            User user = getUserByUsername(username);
             
             // 构建响应
             Map<String, Object> response = new HashMap<>();
@@ -77,6 +75,15 @@ public class AuthServiceImpl implements AuthService {
             response.put("message", "登录失败: " + e.getMessage());
             return response;
         }
+    }
+    
+    /**
+     * 获取用户（使用只读事务）
+     */
+    @Transactional(readOnly = true)
+    private User getUserByUsername(String username) {
+        return userRepository.findByUsernameAndEnabledTrue(username)
+                .orElseThrow(() -> new BadCredentialsException("用户不存在或已被禁用"));
     }
     
     @Override

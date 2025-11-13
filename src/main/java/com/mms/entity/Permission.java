@@ -10,10 +10,10 @@ import java.util.Set;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Entity
-@Table(name = "roles")
-public class Role extends BaseEntity {
+@Table(name = "permissions")
+public class Permission extends BaseEntity {
     
-    @Column(name = "name", length = 50, nullable = false, unique = true)
+    @Column(name = "name", length = 100, nullable = false, unique = true)
     private String name;
     
     @Column(name = "code", length = 50, nullable = false, unique = true)
@@ -22,18 +22,17 @@ public class Role extends BaseEntity {
     @Column(name = "description", length = 255)
     private String description;
     
+    @Column(name = "resource", length = 50)
+    private String resource; // 资源类型，如：CONTRACT, CONTAINER, COMPONENT, USER, ROLE
+    
+    @Column(name = "action", length = 50)
+    private String action; // 操作类型，如：CREATE, UPDATE, DELETE, VIEW, EXECUTE
+    
     @Column(name = "enabled", nullable = false)
     private Boolean enabled = true;
     
-    @ManyToMany(mappedBy = "roles")
-    private Set<User> users = new HashSet<>();
-    
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-        name = "role_permissions",
-        joinColumns = @JoinColumn(name = "role_id"),
-        inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
-    private Set<Permission> permissions = new HashSet<>();
+    @ManyToMany(mappedBy = "permissions")
+    private Set<Role> roles = new HashSet<>();
 }
+
 
