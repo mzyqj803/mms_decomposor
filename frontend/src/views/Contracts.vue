@@ -10,7 +10,12 @@
       <div class="table-header">
         <div class="header-left">
           <h3 class="header-title">合同列表</h3>
-          <el-button type="primary" @click="handleCreate" class="create-button">
+          <el-button 
+            v-if="userStore.hasPermission('CONTRACT:CREATE')"
+            type="primary" 
+            @click="handleCreate" 
+            class="create-button"
+          >
             <el-icon><Plus /></el-icon>
             新建合同
           </el-button>
@@ -224,7 +229,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { contractsApi } from '@/api/contracts'
 import { breakdownApi } from '@/api/breakdown'
 import { convertToBackendUrl, isRelativePath } from '@/utils/url'
+import { useUserStore } from '@/stores/user'
 import dayjs from 'dayjs'
+
+const userStore = useUserStore()
 
 const router = useRouter()
 

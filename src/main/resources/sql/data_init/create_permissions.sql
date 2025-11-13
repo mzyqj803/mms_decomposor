@@ -1,5 +1,12 @@
 -- 创建权限表和角色权限关联表
 -- 此脚本创建权限管理相关的表结构
+-- 执行顺序：必须在 create_users_and_roles.sql (11) 之后执行
+-- 此脚本会：
+--   1. 创建 permissions 和 role_permissions 表
+--   2. 插入所有权限定义
+--   3. 为 ADMIN 角色分配所有权限
+--   4. 为 USER 角色分配基础查看权限
+--   5. 为 READONLY 角色分配所有 VIEW 权限（只读，无 CREATE/UPDATE/DELETE 权限）
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -100,6 +107,10 @@ INSERT INTO permissions (name, code, description, resource, action, enabled, Ent
 ('查看修改历史', 'HISTORY:VIEW', '查看修改历史记录', 'HISTORY', 'VIEW', 1, 'SYS_USER')
 ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), resource=VALUES(resource), action=VALUES(action);
 
+-- ============================================
+-- 角色权限分配
+-- ============================================
+
 -- 为管理员角色分配所有权限
 -- 注意：外键检查已在脚本开头关闭，此操作依赖于 roles 表已有 ADMIN 角色数据（由 create_users_and_roles.sql 提供）
 INSERT INTO role_permissions (role_id, permission_id)
@@ -110,6 +121,7 @@ WHERE r.code = 'ADMIN'
 ON DUPLICATE KEY UPDATE role_id=VALUES(role_id);
 
 -- 为普通用户角色分配基础查看权限
+-- 普通用户只能查看合同、装箱单、工艺分解、零部件和紧固件
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.ID, p.ID
 FROM roles r
@@ -118,15 +130,36 @@ WHERE r.code = 'USER'
   AND p.code IN ('CONTRACT:VIEW', 'CONTAINER:VIEW', 'BREAKDOWN:VIEW', 'COMPONENT:VIEW', 'FASTENER:VIEW')
 ON DUPLICATE KEY UPDATE role_id=VALUES(role_id);
 
--- 为只读用户角色分配所有权限（与管理员相同）
+-- 为只读用户角色分配所有VIEW权限（只读，不能创建、编辑、删除）
+-- 首先删除 READONLY 角色的所有非 VIEW 权限（如果存在）
+DELETE rp FROM role_permissions rp
+INNER JOIN roles r ON rp.role_id = r.ID
+INNER JOIN permissions p ON rp.permission_id = p.ID
+WHERE r.code = 'READONLY' AND p.action != 'VIEW';
+
+-- 然后为 READONLY 角色分配所有 VIEW 权限
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.ID, p.ID
 FROM roles r
 CROSS JOIN permissions p
 WHERE r.code = 'READONLY'
+  AND p.action = 'VIEW'  -- 只分配VIEW权限
 ON DUPLICATE KEY UPDATE role_id=VALUES(role_id);
 
 -- 恢复外键检查
 SET FOREIGN_KEY_CHECKS = 1;
 
+-- 验证 READONLY 角色权限配置
+-- 确保 READONLY 角色只有 VIEW 权限，没有 CREATE/UPDATE/DELETE 权限
+-- 此查询用于验证，不会影响数据
+-- SELECT 
+--   r.code as role_code,
+--   r.name as role_name,
+--   COUNT(CASE WHEN p.action = 'VIEW' THEN 1 END) as view_permissions,
+--   COUNT(CASE WHEN p.action != 'VIEW' THEN 1 END) as non_view_permissions
+-- FROM roles r
+-- LEFT JOIN role_permissions rp ON r.ID = rp.role_id
+-- LEFT JOIN permissions p ON rp.permission_id = p.ID
+-- WHERE r.code = 'READONLY'
+-- GROUP BY r.ID, r.code, r.name;
 

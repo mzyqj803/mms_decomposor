@@ -9,7 +9,12 @@
       <div class="table-header">
         <div class="header-left">
           <h3 class="header-title">零部件列表</h3>
-          <el-button type="primary" @click="handleCreate" class="create-button">
+          <el-button 
+            v-if="userStore.hasPermission('COMPONENT:CREATE')"
+            type="primary" 
+            @click="handleCreate" 
+            class="create-button"
+          >
             <el-icon><Plus /></el-icon>
             新增零部件
           </el-button>
@@ -97,10 +102,20 @@
               <el-button type="primary" size="small" @click="handleView(row)">
                 查看
               </el-button>
-              <el-button type="success" size="small" @click="handleEdit(row)">
+              <el-button 
+                v-if="userStore.hasPermission('COMPONENT:UPDATE')"
+                type="success" 
+                size="small" 
+                @click="handleEdit(row)"
+              >
                 编辑
               </el-button>
-              <el-button type="danger" size="small" @click="handleDelete(row)">
+              <el-button 
+                v-if="userStore.hasPermission('COMPONENT:DELETE')"
+                type="danger" 
+                size="small" 
+                @click="handleDelete(row)"
+              >
                 删除
               </el-button>
             </template>
@@ -147,9 +162,12 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import { componentsApi } from '@/api/components'
+import { useUserStore } from '@/stores/user'
 import CreateComponentDialog from '@/components/CreateComponentDialog.vue'
 import ViewComponentDialog from '@/components/ViewComponentDialog.vue'
 import EditComponentDialog from '@/components/EditComponentDialog.vue'
+
+const userStore = useUserStore()
 
 const loading = ref(false)
 

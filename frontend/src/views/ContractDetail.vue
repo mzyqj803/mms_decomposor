@@ -19,11 +19,19 @@
         <div class="menu-group">
           <span class="group-label">编辑合同</span>
           <el-button-group>
-            <el-button @click="openEditContractDialog" size="small">
+            <el-button 
+              v-if="userStore.hasPermission('CONTRACT:UPDATE')"
+              @click="openEditContractDialog" 
+              size="small"
+            >
               <el-icon><Edit /></el-icon>
               更改合同信息
             </el-button>
-            <el-button @click="showEditParamsDialog" size="small">
+            <el-button 
+              v-if="userStore.hasPermission('CONTRACT:UPDATE')"
+              @click="showEditParamsDialog" 
+              size="small"
+            >
               <el-icon><Setting /></el-icon>
               编辑合同参数
             </el-button>
@@ -34,6 +42,7 @@
             </el-button>
             -->
             <el-button 
+              v-if="userStore.hasPermission('CONTRACT:DELETE')"
               @click="handleDeleteContract" 
               :disabled="deleting || contract?.status === 1" 
               size="small" 
@@ -478,7 +487,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { contractsApi } from '@/api/contracts'
 import { breakdownApi } from '@/api/breakdown'
 import { convertToBackendUrl, isRelativePath } from '@/utils/url'
+import { useUserStore } from '@/stores/user'
 import dayjs from 'dayjs'
+
+const userStore = useUserStore()
 
 const route = useRoute()
 const router = useRouter()

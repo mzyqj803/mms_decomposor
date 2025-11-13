@@ -11,7 +11,11 @@
           <h3 class="header-title">紧固件列表</h3>
         </div>
         <div class="header-right">
-          <el-button type="primary" @click="handleCreate">
+          <el-button 
+            v-if="userStore.hasPermission('FASTENER:CREATE')"
+            type="primary" 
+            @click="handleCreate"
+          >
             <el-icon><Plus /></el-icon>
             新增紧固件
           </el-button>
@@ -154,18 +158,28 @@
               <el-button type="primary" size="small" @click="handleView(row)">
                 查看
               </el-button>
-              <el-button type="success" size="small" @click="handleEdit(row)">
+              <el-button 
+                v-if="userStore.hasPermission('FASTENER:UPDATE')"
+                type="success" 
+                size="small" 
+                @click="handleEdit(row)"
+              >
                 编辑
               </el-button>
               <el-button 
-                v-if="!row.defaultFlag" 
+                v-if="userStore.hasPermission('FASTENER:UPDATE') && !row.defaultFlag" 
                 type="warning" 
                 size="small" 
                 @click="handleSetDefault(row)"
               >
                 设默认
               </el-button>
-              <el-button type="danger" size="small" @click="handleDelete(row)">
+              <el-button 
+                v-if="userStore.hasPermission('FASTENER:DELETE')"
+                type="danger" 
+                size="small" 
+                @click="handleDelete(row)"
+              >
                 删除
               </el-button>
             </template>
@@ -304,6 +318,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import { fastenerWarehouseApi } from '@/api/fastenerWarehouse'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
 
 const loading = ref(false)
 const submitLoading = ref(false)

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
 
 const routes = [
   {
@@ -21,61 +22,61 @@ const routes = [
         path: '/contracts',
         name: 'Contracts',
         component: () => import('@/views/Contracts.vue'),
-        meta: { title: '合同管理' }
+        meta: { title: '合同管理', requiresPermission: 'CONTRACT:VIEW' }
       },
       {
         path: '/contracts/:id',
         name: 'ContractDetail',
         component: () => import('@/views/ContractDetail.vue'),
-        meta: { title: '合同详情' }
+        meta: { title: '合同详情', requiresPermission: 'CONTRACT:VIEW' }
       },
       {
         path: '/components',
         name: 'Components',
         component: () => import('@/views/Components.vue'),
-        meta: { title: '零部件管理' }
+        meta: { title: '零部件管理', requiresPermission: 'COMPONENT:VIEW' }
       },
       {
         path: '/fastener-warehouse',
         name: 'FastenerWarehouse',
         component: () => import('@/views/FastenerWarehouse.vue'),
-        meta: { title: '紧固件库管理' }
+        meta: { title: '紧固件库管理', requiresPermission: 'FASTENER:VIEW' }
       },
       {
         path: '/containers',
         name: 'Containers',
         component: () => import('@/views/Containers.vue'),
-        meta: { title: '装箱单管理' }
+        meta: { title: '装箱单管理', requiresPermission: 'CONTAINER:VIEW' }
       },
       {
         path: '/breakdown',
         name: 'Breakdown',
         component: () => import('@/views/Breakdown.vue'),
-        meta: { title: '工艺分解' }
+        meta: { title: '工艺分解', requiresPermission: 'BREAKDOWN:VIEW' }
       },
       {
         path: '/production-plan',
         name: 'ProductionPlan',
         component: () => import('@/views/ProductionPlan.vue'),
-        meta: { title: '生产计划' }
+        meta: { title: '生产计划', requiresPermission: 'PRODUCTION:VIEW' }
       },
       {
         path: '/cost-estimation',
         name: 'CostEstimation',
         component: () => import('@/views/CostEstimation.vue'),
-        meta: { title: '成本估算' }
+        meta: { title: '成本估算', requiresPermission: 'COST:VIEW' }
       },
       {
         path: '/bidding',
         name: 'Bidding',
         component: () => import('@/views/Bidding.vue'),
-        meta: { title: '投标报价' }
+        meta: { title: '投标报价', requiresPermission: 'BIDDING:VIEW' }
       },
       {
         path: '/history',
         name: 'History',
         component: () => import('@/views/History.vue'),
-        meta: { title: '修改历史' }
+        meta: { title: '修改历史', requiresPermission: 'HISTORY:VIEW' }
       },
       {
         path: '/settings',
@@ -152,6 +153,16 @@ router.beforeEach(async (to, from, next) => {
           path: '/login',
           query: { redirect: to.fullPath }
         })
+        return
+      }
+    }
+    
+    // 检查路由权限要求
+    if (to.meta.requiresPermission) {
+      if (!userStore.hasPermission(to.meta.requiresPermission)) {
+        // 没有权限，跳转到首页或显示无权限提示
+        ElMessage.error('您没有权限访问该页面')
+        next('/')
         return
       }
     }
