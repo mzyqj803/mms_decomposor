@@ -93,7 +93,6 @@ echo [6/7] Copying project files and generating install scripts...
 cd "%PROJECT_ROOT%"
 copy /Y "docker-compose.yml" "%RELEASE_DIR%\%PACKAGE_NAME%\project-files\" >nul
 xcopy /E /I /Y "src\main\resources\sql\data_init" "%RELEASE_DIR%\%PACKAGE_NAME%\project-files\data_init\" >nul
-xcopy /E /I /Y "src\main\resources\sql\migration" "%RELEASE_DIR%\%PACKAGE_NAME%\project-files\migration\" >nul
 
 echo Generating install.bat...
 copy /Y "%PROJECT_ROOT%\script\install-template.bat" "%RELEASE_DIR%\%PACKAGE_NAME%\install.bat" >nul
