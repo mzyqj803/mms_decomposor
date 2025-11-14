@@ -164,10 +164,25 @@
           <div class="parameters-section">
             <div class="section-header">
               <h4>合同参数设置</h4>
-              <el-button type="primary" size="small" @click="addParameter">
-                <el-icon><Plus /></el-icon>
-                添加参数
-              </el-button>
+              <div class="header-actions">
+                <el-upload
+                  :auto-upload="false"
+                  :show-file-list="false"
+                  accept=".csv"
+                  :on-change="handleCsvFileChange"
+                >
+                  <template #trigger>
+                    <el-button type="success" size="small">
+                      <el-icon><Upload /></el-icon>
+                      上传CSV
+                    </el-button>
+                  </template>
+                </el-upload>
+                <el-button type="primary" size="small" @click="addParameter">
+                  <el-icon><Plus /></el-icon>
+                  添加参数
+                </el-button>
+              </div>
             </div>
             
             <el-table :data="contractForm.parameters" style="width: 100%" border>
@@ -230,6 +245,7 @@ import { contractsApi } from '@/api/contracts'
 import { breakdownApi } from '@/api/breakdown'
 import { convertToBackendUrl, isRelativePath } from '@/utils/url'
 import { useUserStore } from '@/stores/user'
+import { Upload, Plus, InfoFilled } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const userStore = useUserStore()
@@ -401,6 +417,170 @@ const validateParameterName = (index) => {
     ElMessage.warning('参数名称不能重复')
     contractForm.parameters[index].paramName = ''
   }
+}
+
+// CSV文件上传处理
+const handleCsvFileChange = async (file) => {
+  // 检查文件类型
+  if (!file.raw.name.toLowerCase().endsWith('.csv')) {
+    ElMessage.error('请上传CSV格式的文件')
+    return
+  }
+  
+  try {
+    // 读取文件内容
+    const text = await readFileAsText(file.raw)
+    
+    // 解析CSV
+    const parameters = parseCsvToParameters(text)
+    
+    if (parameters.length === 0) {
+      ElMessage.warning('CSV文件中没有有效的参数数据')
+      return
+    }
+    
+    // 检查是否有重复的参数名称
+    const paramNames = parameters.map(p => p.paramName)
+    const uniqueNames = new Set(paramNames)
+    if (paramNames.length !== uniqueNames.size) {
+      ElMessage.warning('CSV文件中存在重复的参数名称，将自动去重')
+      // 去重处理：保留第一次出现的参数
+      const seen = new Set()
+      const uniqueParameters = []
+      for (const param of parameters) {
+        if (!seen.has(param.paramName)) {
+          seen.add(param.paramName)
+          uniqueParameters.push(param)
+        }
+      }
+      parameters.length = 0
+      parameters.push(...uniqueParameters)
+    }
+    
+    // 检查是否与现有参数重复，如果重复则覆盖
+    const existingNames = new Set(
+      contractForm.parameters
+        .filter(p => p.paramName)
+        .map(p => p.paramName)
+    )
+    
+    const conflictingNames = parameters
+      .map(p => p.paramName)
+      .filter(name => existingNames.has(name))
+    
+    if (conflictingNames.length > 0) {
+      ElMessage.info(`以下参数将被覆盖：${conflictingNames.join(', ')}`)
+      // 先更新已存在的参数
+      parameters.forEach(param => {
+        const existingIndex = contractForm.parameters.findIndex(
+          p => p.paramName === param.paramName
+        )
+        if (existingIndex !== -1) {
+          // 覆盖现有参数的值
+          contractForm.parameters[existingIndex].paramValue = param.paramValue
+        } else {
+          // 添加新参数
+          contractForm.parameters.push(param)
+        }
+      })
+    } else {
+      // 如果没有冲突，直接追加所有参数
+      // 如果当前只有一个空参数行，则替换；否则追加
+      const isEmpty = contractForm.parameters.length === 1 &&
+                      !contractForm.parameters[0].paramName &&
+                      !contractForm.parameters[0].paramValue
+
+      if (isEmpty) {
+        contractForm.parameters.length = 0
+        contractForm.parameters.push(...parameters)
+      } else {
+        contractForm.parameters.push(...parameters)
+      }
+    }
+    
+    ElMessage.success(`成功导入 ${parameters.length} 个参数`)
+  } catch (error) {
+    console.error('CSV解析失败:', error)
+    ElMessage.error('CSV文件解析失败，请检查文件格式')
+  }
+}
+
+// 读取文件为文本
+const readFileAsText = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => resolve(e.target.result)
+    reader.onerror = reject
+    reader.readAsText(file, 'UTF-8')
+  })
+}
+
+// 解析CSV为参数数组
+const parseCsvToParameters = (csvText) => {
+  const lines = csvText.split('\n').filter(line => line.trim())
+  const parameters = []
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+    
+    // 处理CSV行，支持引号包裹的字段
+    const parts = parseCsvLine(line)
+    
+    if (parts.length >= 2) {
+      const paramName = parts[0].trim()
+      const paramValue = parts[1].trim()
+      
+      // 跳过空行和表头（如果第一行是表头）
+      if (i === 0 && (paramName === '参数名称' || paramName === '参数值' || 
+          paramName.toLowerCase() === 'paramname' || paramName.toLowerCase() === 'paramvalue')) {
+        continue
+      }
+      
+      // 只添加非空的参数名称
+      if (paramName) {
+        parameters.push({
+          paramName: paramName,
+          paramValue: paramValue || ''
+        })
+      }
+    }
+  }
+  
+  return parameters
+}
+
+// 解析CSV行，支持引号包裹的字段
+const parseCsvLine = (line) => {
+  const result = []
+  let current = ''
+  let inQuotes = false
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        // 转义的双引号
+        current += '"'
+        i++
+      } else {
+        // 切换引号状态
+        inQuotes = !inQuotes
+      }
+    } else if (char === ',' && !inQuotes) {
+      // 字段分隔符
+      result.push(current)
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  
+  // 添加最后一个字段
+  result.push(current)
+  
+  return result
 }
 
 const handleView = (row) => {
@@ -621,6 +801,11 @@ onMounted(() => {
       color: #303133;
       font-size: 16px;
       font-weight: 600;
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 8px;
     }
   }
   
