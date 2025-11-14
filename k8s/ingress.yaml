@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mms-ingress
+  namespace: mms
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # 如果需要启用 SSL，取消下面的注释并配置证书
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx  # 根据您的 Ingress Controller 修改
+  rules:
+  - host: mms.example.com  # 修改为您的域名
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8080
+  # 如果需要启用 HTTPS，取消下面的注释
+  # tls:
+  # - hosts:
+  #   - mms.example.com
+  #   secretName: mms-tls-secret
+
